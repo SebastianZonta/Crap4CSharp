@@ -1,6 +1,15 @@
 # 01 — Default coverage run yields N/A on src/test-split layouts
 
-Status: needs-triage
+Status: resolved
+
+Fixed: `CliApplication.TestTargetFor` now resolves the `dotnet test` target —
+when the workspace root holds exactly one `.sln`/`.slnx`, coverage runs against
+that solution (results still land under each module's `TestResults/`); otherwise
+the module root is used as before. New `CoverageRunner.GenerateCoverageAsync`
+overload takes the target explicitly; old overload delegates unchanged.
+Verified live on `../crap4subject`: default mode now reports real scores
+(Monster CC 15 @ 80% -> CRAP 16.8, gate exit 2) instead of N/A.
+26 regression tests added (suite 192/192 green).
 
 ## Observed
 

@@ -277,4 +277,86 @@ public class CliArgumentsParserTest
         Assert.Throws<InvalidOperationException>(
             () => CliArgumentsParser.Parse(["--no-coverage=x"]));
     }
+
+    [Fact]
+    public void SlashQuestionMarkMeansHelpMode()
+    {
+        CliArguments args = CliArgumentsParser.Parse(["/?"]);
+        Assert.Equal(CliMode.Help, args.Mode);
+    }
+
+    [Theory]
+    [InlineData("--help", "--version")]
+    [InlineData("--version", "--help")]
+    [InlineData("-?", "--version")]
+    public void HelpWinsOverVersion(string first, string second)
+    {
+        CliArguments args = CliArgumentsParser.Parse([first, second]);
+        Assert.Equal(CliMode.Help, args.Mode);
+    }
+
+    [Theory]
+    [InlineData("-h=x")]
+    [InlineData("-?=x")]
+    [InlineData("-h=")]
+    public void ShortHelpEqualsFormRejected(string flag)
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse([flag]));
+    }
+
+    [Fact]
+    public void LastValueWinsForRepeatedOptions()
+    {
+        CliArguments args = CliArgumentsParser.Parse(
+            ["--threshold=1", "--threshold", "9", "--format=text", "--format=json",
+             "--path=a", "--path=b", "--top=1", "--top=3"]);
+        Assert.Equal(9.0, args.Threshold);
+        Assert.Equal("json", args.Format);
+        Assert.Equal("b", args.ProjectPath);
+        Assert.Equal(3, args.Top);
+    }
+
+    [Theory]
+    [InlineData("-h")]
+    [InlineData("--changed")]
+    public void DoubleDashTreatsFlagsAsFilenames(string flag)
+    {
+        CliArguments args = CliArgumentsParser.Parse(["--", flag]);
+        Assert.Equal(CliMode.ExplicitFiles, args.Mode);
+        Assert.Equal([flag], args.FileArgs);
+    }
+
+    [Theory]
+    [InlineData("+Infinity")]
+    [InlineData("Infinity")]
+    [InlineData("-Infinity")]
+    public void InfinityThresholdThrows(string raw)
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse(["--threshold", raw]));
+    }
+
+    [Fact]
+    public void YamlFormatThrows()
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse(["--format", "yaml"]));
+    }
+
+    [Theory]
+    [InlineData("--top=")]
+    [InlineData("--min-cc=")]
+    public void EmptyTopEqualsThrows(string flag)
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse([flag]));
+    }
+
+    [Fact]
+    public void UnknownOptionEqualsFormThrows()
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse(["--bogus=x"]));
+    }
 }

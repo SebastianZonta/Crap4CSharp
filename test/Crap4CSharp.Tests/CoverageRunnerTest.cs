@@ -117,6 +117,51 @@ public sealed class CoverageRunnerTest : IDisposable
     }
 
     [Fact]
+    public async Task ThreeArgOverloadTargetsSolutionWithModuleResultsDir()
+    {
+        string moduleRoot = Path.Combine(_tempDir, "src", "Demo");
+        Directory.CreateDirectory(moduleRoot);
+        string target = Path.Combine(_tempDir, "App.sln");
+        await File.WriteAllTextAsync(target, "");
+        string stale = Path.Combine(moduleRoot, "TestResults", "old.xml");
+        Directory.CreateDirectory(Path.GetDirectoryName(stale)!);
+        await File.WriteAllTextAsync(stale, "stale");
+
+        var executor = new RecordingExecutor(0);
+        var runner = new CoverageRunner(executor);
+
+        await runner.GenerateCoverageAsync(target, moduleRoot);
+
+        Assert.False(Directory.Exists(Path.Combine(moduleRoot, "TestResults")));
+        Assert.Single(executor.Commands);
+        Assert.Equal(
+            ["dotnet", "test", target, "--collect:XPlat Code Coverage;Format=cobertura",
+                "--results-directory", Path.Combine(moduleRoot, "TestResults")],
+            executor.Commands[0]);
+        Assert.Equal([moduleRoot], executor.Directories);
+    }
+
+    [Fact]
+    public async Task ThreeArgOverloadFailsWhenCommandFails()
+    {
+        var runner = new CoverageRunner(new RecordingExecutor(2));
+
+        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.GenerateCoverageAsync(Path.Combine(_tempDir, "App.sln"), _tempDir));
+
+        Assert.Equal("Coverage command failed with exit 2", ex.Message);
+    }
+
+    [Fact]
+    public async Task ThreeArgOverloadNullTargetThrows()
+    {
+        var runner = new CoverageRunner(new RecordingExecutor(0));
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => runner.GenerateCoverageAsync(null!, _tempDir));
+    }
+
+    [Fact]
     public void WrapsDeleteFailureAsInvalidOperation()
     {
         if (!OperatingSystem.IsLinux())

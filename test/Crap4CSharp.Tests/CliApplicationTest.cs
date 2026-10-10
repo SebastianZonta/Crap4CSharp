@@ -849,6 +849,203 @@ public sealed class CliApplicationTest : IDisposable
         Assert.Contains("Unknown option", err.ToString(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TestTargetForReturnsSingleSolution()
+    {
+        string sln = Path.Combine(_tempDir, "App.sln");
+        File.WriteAllText(sln, "");
+        string moduleRoot = Path.Combine(_tempDir, "src", "Demo");
+
+        Assert.Equal(sln, CliApplication.TestTargetFor(_tempDir, moduleRoot));
+    }
+
+    [Fact]
+    public void TestTargetForReturnsSingleSlnx()
+    {
+        string slnx = Path.Combine(_tempDir, "App.slnx");
+        File.WriteAllText(slnx, "");
+
+        Assert.Equal(slnx, CliApplication.TestTargetFor(_tempDir, Path.Combine(_tempDir, "src")));
+    }
+
+    [Fact]
+    public void TestTargetForFallsBackWithoutSolution()
+    {
+        string moduleRoot = Path.Combine(_tempDir, "src", "Demo");
+
+        Assert.Equal(moduleRoot, CliApplication.TestTargetFor(_tempDir, moduleRoot));
+    }
+
+    [Fact]
+    public void TestTargetForFallsBackWithTwoSolutions()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, "A.sln"), "");
+        File.WriteAllText(Path.Combine(_tempDir, "B.sln"), "");
+        string moduleRoot = Path.Combine(_tempDir, "src");
+
+        Assert.Equal(moduleRoot, CliApplication.TestTargetFor(_tempDir, moduleRoot));
+    }
+
+    [Fact]
+    public void TestTargetForFallsBackWithMixedSlnAndSlnx()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, "A.sln"), "");
+        File.WriteAllText(Path.Combine(_tempDir, "B.slnx"), "");
+        string moduleRoot = Path.Combine(_tempDir, "src");
+
+        Assert.Equal(moduleRoot, CliApplication.TestTargetFor(_tempDir, moduleRoot));
+    }
+
+    [Fact]
+    public void TestTargetForIgnoresNestedSolutions()
+    {
+        Directory.CreateDirectory(Path.Combine(_tempDir, "nested"));
+        File.WriteAllText(Path.Combine(_tempDir, "nested", "App.sln"), "");
+        string moduleRoot = Path.Combine(_tempDir, "src");
+
+        Assert.Equal(moduleRoot, CliApplication.TestTargetFor(_tempDir, moduleRoot));
+    }
+
+    [Fact]
+    public void TestTargetForMatchesSolutionCaseInsensitively()
+    {
+        string sln = Path.Combine(_tempDir, "APP.SLN");
+        File.WriteAllText(sln, "");
+
+        Assert.Equal(sln, CliApplication.TestTargetFor(_tempDir, Path.Combine(_tempDir, "src")));
+    }
+
+    [Fact]
+    public void TestTargetForFallsBackWhenWorkspaceMissing()
+    {
+        string missing = Path.Combine(_tempDir, "does-not-exist");
+        string moduleRoot = Path.Combine(_tempDir, "src");
+
+        Assert.Equal(moduleRoot, CliApplication.TestTargetFor(missing, moduleRoot));
+    }
+
+    [Fact]
+    public void SolutionTargetedRunUsesSolutionArgvWithModuleTestResults()
+    {
+        string root = Path.GetFullPath(_tempDir);
+        File.WriteAllText(Path.Combine(root, "App.sln"), "");
+        string sourceRoot = Path.Combine(root, "src", "Demo");
+        Directory.CreateDirectory(sourceRoot);
+        File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
+            namespace Demo;
+
+            class Sample {
+                int Alpha() {
+                    return 1;
+                }
+            }
+            """);
+        var commands = new List<IReadOnlyList<string>>();
+        var directories = new List<string>();
+        var coverageRunner = new CoverageRunner(new FakeExecutor((command, directory) =>
+        {
+            commands.Add(command);
+            directories.Add(directory);
+            string dir = Path.Combine(root, "TestResults", "run1");
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, "coverage.cobertura.xml"), """
+                <coverage>
+                  <packages>
+                    <package name="Demo">
+                      <classes>
+                        <class name="Demo/Sample" filename="Sample.cs">
+                          <methods>
+                            <method name="Alpha" signature="()V">
+                              <lines>
+                                <line number="4" hits="1"/>
+                                <line number="5" hits="1"/>
+                              </lines>
+                            </method>
+                          </methods>
+                        </class>
+                      </classes>
+                    </package>
+                  </packages>
+                </coverage>
+                """);
+            return 0;
+        }));
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+            .Execute([Path.Combine("src", "Demo", "Sample.cs")]);
+
+        Assert.Equal(0, exit);
+        Assert.Single(commands);
+        Assert.Equal(Path.Combine(root, "App.sln"), commands[0][2]);
+        Assert.Equal([root], directories);
+        Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Warning: Cobertura XML not found", err.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RunWithoutSolutionKeepsModuleRootTarget()
+    {
+        string root = Path.GetFullPath(_tempDir);
+        string rel = WriteTwoMethodSample();
+        var commands = new List<IReadOnlyList<string>>();
+        var coverageRunner = new CoverageRunner(new FakeExecutor((command, _) =>
+        {
+            commands.Add(command);
+            return 0;
+        }));
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, coverageRunner).Execute([rel]);
+
+        Assert.Equal(0, exit);
+        Assert.Single(commands);
+        Assert.Equal(root, commands[0][2]);
+    }
+
+    [Fact]
+    public void OutputFlagCreatesNestedDirsMatchingStdout()
+    {
+        string rel = WriteTwoMethodSample();
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+            .Execute([rel, "--output", Path.Combine("reports", "nested", "report.txt")]);
+
+        Assert.Equal(0, exit);
+        string file = Path.Combine(_tempDir, "reports", "nested", "report.txt");
+        Assert.True(File.Exists(file));
+        Assert.Equal(output.ToString(), File.ReadAllText(file));
+    }
+
+    [Fact]
+    public void MissingExplicitFileExitsZero()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+            .Execute([Path.Combine("missing", "Nope.cs")]);
+
+        Assert.Equal(0, exit);
+    }
+
+    [Fact]
+    public void NonexistentPathWithChangedExitsOne()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+            .Execute(["--changed", "--path", "does-not-exist"]);
+
+        Assert.Equal(1, exit);
+        Assert.Contains("Project directory not found", err.ToString(), StringComparison.Ordinal);
+    }
+
     private static void Run(string command, string dir)
     {
         var startInfo = new System.Diagnostics.ProcessStartInfo("sh", $"-c \"{command}\"")

@@ -12,16 +12,21 @@ internal sealed class CoverageRunner
     internal void GenerateCoverage(string moduleRoot) =>
         GenerateCoverageAsync(moduleRoot).GetAwaiter().GetResult();
 
+    internal Task GenerateCoverageAsync(
+        string moduleRoot, CancellationToken cancellationToken = default) =>
+        GenerateCoverageAsync(moduleRoot, moduleRoot, cancellationToken);
+
     internal async Task GenerateCoverageAsync(
-        string moduleRoot, CancellationToken cancellationToken = default)
+        string testTarget, string moduleRoot, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(testTarget);
         ArgumentNullException.ThrowIfNull(moduleRoot);
         cancellationToken.ThrowIfCancellationRequested();
         FileSystemHelpers.DeleteIfExists(Path.Combine(moduleRoot, ToolConstants.TestResultsDirName));
 
         string resultsDirectory = Path.Combine(moduleRoot, ToolConstants.TestResultsDirName);
         int exit = await _executor.RunAsync(
-            ["dotnet", "test", moduleRoot, "--collect:XPlat Code Coverage;Format=cobertura",
+            ["dotnet", "test", testTarget, "--collect:XPlat Code Coverage;Format=cobertura",
                 "--results-directory", resultsDirectory],
             moduleRoot,
             cancellationToken).ConfigureAwait(false);

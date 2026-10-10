@@ -128,7 +128,8 @@ internal sealed class CliApplication
             string moduleRoot = entry.Key;
             if (!noCoverage)
             {
-                await _coverageRunner.GenerateCoverageAsync(moduleRoot, cancellationToken).ConfigureAwait(false);
+                string testTarget = TestTargetFor(effectiveRoot, moduleRoot);
+                await _coverageRunner.GenerateCoverageAsync(testTarget, moduleRoot, cancellationToken).ConfigureAwait(false);
             }
             string? coberturaXml = FindCoberturaXml(moduleRoot);
             if (coberturaXml is null)
@@ -162,6 +163,39 @@ internal sealed class CliApplication
     internal static bool ThresholdExceeded(double max) => ThresholdExceeded(max, DefaultThreshold);
 
     internal static bool ThresholdExceeded(double max, double threshold) => max.CompareTo(threshold) > 0;
+
+    // Coverage must run against a testable target: `dotnet test` on a plain
+    // library project exits 0 but produces no Cobertura file, so on the
+    // standard src/test split the module root alone always yields N/A.
+    // When the workspace root holds exactly one solution, test that instead
+    // (results still land under the module's TestResults); otherwise keep
+    // the module root (e.g. the module is itself a test project).
+    internal static string TestTargetFor(string workspaceRoot, string moduleRoot)
+    {
+        try
+        {
+            string? single = null;
+            int count = 0;
+            foreach (string file in Directory.EnumerateFiles(workspaceRoot))
+            {
+                if (file.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
+                    || file.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase))
+                {
+                    count++;
+                    single = file;
+                }
+            }
+            if (count == 1 && single is not null)
+            {
+                return single;
+            }
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is DirectoryNotFoundException)
+        {
+            // Fall through to the module root below.
+        }
+        return moduleRoot;
+    }
 
     private ParseOutcome ParseArguments(string[] args)
     {
