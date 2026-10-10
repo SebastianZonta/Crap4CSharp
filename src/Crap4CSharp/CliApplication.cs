@@ -24,48 +24,53 @@ internal sealed class CliApplication
         _coverageRunner = coverageRunner;
     }
 
-    internal int Execute(string[] args)
+    internal int Execute(string[] args) =>
+        ExecuteAsync(args).GetAwaiter().GetResult();
+
+    internal async Task<int> ExecuteAsync(string[] args, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(args);
         ParseOutcome parse = ParseArguments(args);
         if (parse.ExitCode >= 0)
         {
             return parse.ExitCode;
         }
         CliArguments parsed = parse.Arguments!;
-        IReadOnlyList<string> filesToAnalyze = FilesForMode(parsed);
+        IReadOnlyList<string> filesToAnalyze = await FilesForModeAsync(parsed, cancellationToken).ConfigureAwait(false);
         if (filesToAnalyze.Count == 0)
         {
-            _out.WriteLine("No C# files to analyze.");
+            await _out.WriteLineAsync("No C# files to analyze.").ConfigureAwait(false);
             return 0;
         }
 
-        List<MethodMetrics> metrics = AnalyzeByModule(filesToAnalyze);
+        List<MethodMetrics> metrics = await AnalyzeByModuleAsync(filesToAnalyze, cancellationToken).ConfigureAwait(false);
         metrics.Sort(static (a, b) => CompareByCrapDesc(a, b));
-        _out.Write(ReportFormatter.Format(metrics));
+        await _out.WriteAsync(ReportFormatter.Format(metrics)).ConfigureAwait(false);
 
         double max = Program.MaxCrap(metrics);
         if (ThresholdExceeded(max))
         {
-            _err.WriteLine(string.Format(
+            await _err.WriteLineAsync(string.Format(
                 System.Globalization.CultureInfo.InvariantCulture,
-                "CRAP threshold exceeded: {0:F1} > 8.0", max));
+                "CRAP threshold exceeded: {0:F1} > 8.0", max)).ConfigureAwait(false);
             return 2;
         }
         return 0;
     }
 
-    private List<MethodMetrics> AnalyzeByModule(IReadOnlyList<string> filesToAnalyze)
+    private async Task<List<MethodMetrics>> AnalyzeByModuleAsync(
+        IReadOnlyList<string> filesToAnalyze, CancellationToken cancellationToken)
     {
         List<MethodMetrics> metrics = [];
         foreach (var entry in GroupByModuleRoot(filesToAnalyze))
         {
             string moduleRoot = entry.Key;
-            _coverageRunner.GenerateCoverage(moduleRoot);
+            await _coverageRunner.GenerateCoverageAsync(moduleRoot, cancellationToken).ConfigureAwait(false);
             string? coberturaXml = FindCoberturaXml(moduleRoot);
             if (coberturaXml is null)
             {
-                _err.WriteLine("Warning: Cobertura XML not found at "
-                    + Path.Combine(moduleRoot, "TestResults") + ". Coverage will be N/A.");
+                await _err.WriteLineAsync("Warning: Cobertura XML not found at "
+                    + Path.Combine(moduleRoot, "TestResults") + ". Coverage will be N/A.").ConfigureAwait(false);
             }
             metrics.AddRange(CrapAnalyzer.Analyze(moduleRoot, entry.Value, coberturaXml));
         }
@@ -122,10 +127,12 @@ internal sealed class CliApplication
         }
     }
 
-    private IReadOnlyList<string> FilesForMode(CliArguments parsed) => parsed.Mode switch
+    private async Task<IReadOnlyList<string>> FilesForModeAsync(
+        CliArguments parsed, CancellationToken cancellationToken) => parsed.Mode switch
     {
         CliMode.AllSrc => SourceFileFinder.FindAllCsFilesUnderSrc(_projectRoot),
-        CliMode.ChangedSrc => ChangedFileDetector.ChangedCsFilesUnderSrc(_projectRoot),
+        CliMode.ChangedSrc => await ChangedFileDetector
+            .ChangedCsFilesUnderSrcAsync(_projectRoot, cancellationToken).ConfigureAwait(false),
         CliMode.ExplicitFiles => ExplicitFiles(parsed.FileArgs),
         _ => [],
     };

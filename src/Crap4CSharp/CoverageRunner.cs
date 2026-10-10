@@ -9,15 +9,22 @@ internal sealed class CoverageRunner
         _executor = executor;
     }
 
-    internal void GenerateCoverage(string moduleRoot)
+    internal void GenerateCoverage(string moduleRoot) =>
+        GenerateCoverageAsync(moduleRoot).GetAwaiter().GetResult();
+
+    internal async Task GenerateCoverageAsync(
+        string moduleRoot, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(moduleRoot);
+        cancellationToken.ThrowIfCancellationRequested();
         DeleteIfExists(Path.Combine(moduleRoot, "TestResults"));
 
         string resultsDirectory = Path.Combine(moduleRoot, "TestResults");
-        int exit = _executor.Run(
+        int exit = await _executor.RunAsync(
             ["dotnet", "test", moduleRoot, "--collect:XPlat Code Coverage;Format=cobertura",
                 "--results-directory", resultsDirectory],
-            moduleRoot);
+            moduleRoot,
+            cancellationToken).ConfigureAwait(false);
         if (exit != 0)
         {
             throw new InvalidOperationException("Coverage command failed with exit " + exit);
@@ -30,34 +37,22 @@ internal sealed class CoverageRunner
         {
             return;
         }
-        if (Directory.Exists(path))
+        try
         {
-            // Recursive reverse-order delete, mirroring Files.walk sorted reverseOrder:
-            // children sort after their parents, so descending order deletes them first.
-            IEnumerable<string> entries = Directory
-                .EnumerateFileSystemEntries(path, "*", SearchOption.AllDirectories)
-                .OrderByDescending(entry => entry, StringComparer.Ordinal);
-            foreach (string entry in entries)
+            if (Directory.Exists(path))
             {
-                try
-                {
-                    if (File.Exists(entry))
-                    {
-                        File.Delete(entry);
-                    }
-                    else if (Directory.Exists(entry))
-                    {
-                        Directory.Delete(entry);
-                    }
-                }
-                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
-                {
-                    throw new InvalidOperationException("Failed deleting stale coverage: " + entry, ex);
-                }
+                Directory.Delete(path, recursive: true);
+                return;
             }
-            Directory.Delete(path);
-            return;
+            File.Delete(path);
         }
-        File.Delete(path);
+        catch (Exception ex) when (ex is DirectoryNotFoundException || ex is FileNotFoundException)
+        {
+            // Lost a delete/create race with a concurrent run; nothing left to do.
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException("Failed deleting stale coverage: " + path, ex);
+        }
     }
 }

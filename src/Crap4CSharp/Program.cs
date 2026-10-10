@@ -8,7 +8,26 @@ internal static class Program
     public static int Main(string[] args)
     {
         string projectRoot = Path.GetFullPath(Directory.GetCurrentDirectory());
-        return Run(args, projectRoot, Console.Out, Console.Error);
+        using var cts = new CancellationTokenSource();
+        ConsoleCancelEventHandler? handler = (_, e) =>
+        {
+            e.Cancel = true;
+            cts.Cancel();
+        };
+        Console.CancelKeyPress += handler;
+        try
+        {
+            return RunAsync(args, projectRoot, Console.Out, Console.Error, cts.Token)
+                .GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            return 130;
+        }
+        finally
+        {
+            Console.CancelKeyPress -= handler;
+        }
     }
 
     internal static int Run(string[] args, string projectRoot, TextWriter output, TextWriter err) =>
@@ -16,7 +35,17 @@ internal static class Program
 
     internal static int Run(
         string[] args, string projectRoot, TextWriter output, TextWriter err, CoverageRunner coverageRunner) =>
-        new CliApplication(projectRoot, output, err, coverageRunner).Execute(args);
+        RunAsync(args, projectRoot, output, err, coverageRunner).GetAwaiter().GetResult();
+
+    internal static Task<int> RunAsync(
+        string[] args, string projectRoot, TextWriter output, TextWriter err,
+        CancellationToken cancellationToken = default) =>
+        RunAsync(args, projectRoot, output, err, new CoverageRunner(new ProcessCommandExecutor()), cancellationToken);
+
+    internal static Task<int> RunAsync(
+        string[] args, string projectRoot, TextWriter output, TextWriter err,
+        CoverageRunner coverageRunner, CancellationToken cancellationToken = default) =>
+        new CliApplication(projectRoot, output, err, coverageRunner).ExecuteAsync(args, cancellationToken);
 
     internal static string Usage() => UsageText;
 

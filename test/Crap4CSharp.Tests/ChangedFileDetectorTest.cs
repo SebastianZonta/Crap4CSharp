@@ -96,6 +96,72 @@ public sealed class ChangedFileDetectorTest : IDisposable
         Assert.Equal("Plain.cs", ChangedFileDetector.RenameTarget("Plain.cs"));
     }
 
+    [Fact]
+    public async Task AsyncReturnsSameResultsAsSync()
+    {
+        Run("git init", _tempDir);
+        Run("git config user.email test@example.com", _tempDir);
+        Run("git config user.name test", _tempDir);
+
+        string src = Path.Combine(_tempDir, "src", "main", "cs", "demo");
+        Directory.CreateDirectory(src);
+        string tracked = Path.Combine(src, "Tracked.cs");
+        await File.WriteAllTextAsync(tracked, "class Tracked {}\n");
+
+        Run("git add .", _tempDir);
+        Run("git commit -m init", _tempDir);
+
+        await File.WriteAllTextAsync(tracked, "class Tracked { int x = 1; }\n");
+        await File.WriteAllTextAsync(Path.Combine(src, "NewFile.cs"), "class NewFile {}\n");
+
+        Assert.Equal(
+            SyncChangedFiles(_tempDir),
+            await ChangedFileDetector.ChangedCsFilesAsync(_tempDir));
+        Assert.Equal(
+            SyncChangedFilesUnderSrc(_tempDir),
+            await ChangedFileDetector.ChangedCsFilesUnderSrcAsync(_tempDir));
+    }
+
+    [Fact]
+    public async Task ProjectRootWithSpacesWorks()
+    {
+        string spaced = Path.Combine(_tempDir, "dir with spaces");
+        string src = Path.Combine(spaced, "src");
+        Directory.CreateDirectory(src);
+        Run("git init", spaced);
+        Run("git config user.email test@example.com", spaced);
+        Run("git config user.name test", spaced);
+
+        string tracked = Path.Combine(src, "Tracked.cs");
+        await File.WriteAllTextAsync(tracked, "class Tracked {}\n");
+        Run("git add .", spaced);
+        Run("git commit -m init", spaced);
+        await File.WriteAllTextAsync(tracked, "class Tracked { int x = 1; }\n");
+
+        Assert.Equal(
+            new[] { tracked },
+            await ChangedFileDetector.ChangedCsFilesAsync(spaced));
+    }
+
+    [Fact]
+    public async Task PreCancelledTokenThrowsOperationCanceled()
+    {
+        Run("git init", _tempDir);
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => ChangedFileDetector.ChangedCsFilesAsync(_tempDir, cancelled.Token));
+    }
+
+    // Sync entry points compared against their async twins; kept behind
+    // non-async helpers so the async tests above stay analyzer-clean.
+    private static IReadOnlyList<string> SyncChangedFiles(string dir) =>
+        ChangedFileDetector.ChangedCsFiles(dir);
+
+    private static IReadOnlyList<string> SyncChangedFilesUnderSrc(string dir) =>
+        ChangedFileDetector.ChangedCsFilesUnderSrc(dir);
+
     private static void Run(string command, string dir)
     {
         var startInfo = new ProcessStartInfo("sh", $"-c \"{command}\"")
