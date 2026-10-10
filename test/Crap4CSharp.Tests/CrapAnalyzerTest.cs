@@ -79,6 +79,101 @@ public sealed class CrapAnalyzerTest : IDisposable
     }
 
     [Fact]
+    public void SkipsMissingFilesWithoutThrowing()
+    {
+        string missing = Path.Combine(_tempDir, "src", "Gone.cs");
+
+        var result = CrapAnalyzer.Analyze(_tempDir, new[] { missing }, null);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void SortsMixedKnownAndUnknownScoresWithUnknownsLast()
+    {
+        string sourceRoot = Path.Combine(_tempDir, "src", "Sample");
+        Directory.CreateDirectory(sourceRoot);
+        string source = Path.Combine(sourceRoot, "Sample.cs");
+        File.WriteAllText(source, """
+            namespace Demo;
+
+            class Sample {
+                int Known(bool a) {
+                    if (a) {
+                        return 1;
+                    }
+                    return 0;
+                }
+
+                int Mystery() {
+                    return 2;
+                }
+
+                int Plain(bool a) {
+                    if (a) {
+                        return 1;
+                    }
+                    return 0;
+                }
+
+                int Other() {
+                    return 3;
+                }
+            }
+            """);
+
+        // Coverage only for the Known/Plain methods, at lines that do not
+        // exactly match the method starts (exercises nearest-line fallback).
+        string cobertura = Path.Combine(_tempDir, "coverage.cobertura.xml");
+        File.WriteAllText(cobertura, """
+            <coverage>
+              <packages>
+                <package name="Demo">
+                  <classes>
+                    <class name="Demo/Sample" filename="Sample.cs">
+                      <methods>
+                        <method name="Known" signature="()V">
+                          <lines>
+                            <line number="5" hits="2"/>
+                            <line number="9" hits="2"/>
+                          </lines>
+                        </method>
+                        <method name="Plain" signature="()V">
+                          <lines>
+                            <line number="17" hits="0"/>
+                            <line number="21" hits="0"/>
+                          </lines>
+                        </method>
+                      </methods>
+                    </class>
+                  </classes>
+                </package>
+              </packages>
+            </coverage>
+            """);
+
+        var result = CrapAnalyzer.Analyze(_tempDir, new[] { source }, cobertura);
+
+        // Scored methods first (higher CRAP first), unknown scores last.
+        Assert.Equal(["Plain", "Known", "Mystery", "Other"],
+            result.Select(m => m.MethodName).ToList());
+    }
+
+    [Fact]
+    public void NearestCoverageIgnoresOtherMethods()
+    {
+        var coverageMap = new Dictionary<string, CoverageData>
+        {
+            ["Demo.Sample#Beta:10"] = new CoverageData(0, 8),
+            ["Demo.Sample#Alpha:10"] = new CoverageData(1, 3),
+        };
+
+        double? coverage = CrapAnalyzer.LookupCoverage(coverageMap, "Demo.Sample", "Alpha", 12);
+
+        Assert.Equal(75.0, coverage!.Value, 0.001);
+    }
+
+    [Fact]
     public void UsesSimpleClassNameWhenSourceHasNoNamespace()
     {
         string className = CrapAnalyzer.ClassNameFromSource(
@@ -130,7 +225,7 @@ public sealed class CrapAnalyzerTest : IDisposable
 
         CoverageData? nearest = CrapAnalyzer.NearestCoverage(coverageMap, "Demo.Sample", "Alpha", 12);
 
-        Assert.Equal(75.0, nearest!.CoveragePercent(), 0.001);
+        Assert.Equal(75.0, nearest!.Value.CoveragePercent(), 0.001);
     }
 
     [Fact]

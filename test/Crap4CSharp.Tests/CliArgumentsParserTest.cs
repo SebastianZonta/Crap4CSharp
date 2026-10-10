@@ -62,4 +62,13 @@ public class CliArgumentsParserTest
         Assert.Equal(CliMode.ExplicitFiles, args.Mode);
         Assert.Equal(SingleFile, args.FileArgs);
     }
+
+    [Fact]
+    public void UnknownFlagAloneMeansExplicitFilesWithNoFiles()
+    {
+        CliArguments args = CliArgumentsParser.Parse(["--bogus"]);
+
+        Assert.Equal(CliMode.ExplicitFiles, args.Mode);
+        Assert.Empty(args.FileArgs);
+    }
 }

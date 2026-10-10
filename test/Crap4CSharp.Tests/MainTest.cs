@@ -134,6 +134,38 @@ public sealed class MainTest : IDisposable
         Assert.Equal(7.0, Program.MaxCrap(metrics));
     }
 
+    [Fact]
+    public void MainEntryPointHandlesHelpInProcess()
+    {
+        int exit = Program.Main(["--help"]);
+
+        Assert.Equal(0, exit);
+    }
+
+    [Fact]
+    public void RunOverloadWithoutRunnerUsesDefaultCoverage()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = Program.Run(["--help"], _tempDir, output, err);
+
+        Assert.Equal(0, exit);
+        Assert.Contains("Usage:", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunAsyncOverloadWithoutRunnerUsesDefaultCoverage()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = await Program.RunAsync(["--help"], _tempDir, output, err);
+
+        Assert.Equal(0, exit);
+        Assert.Contains("Usage:", output.ToString(), StringComparison.Ordinal);
+    }
+
     private static int RunTool(string arguments, string workingDirectory)
     {
         string dll = FindToolDll();

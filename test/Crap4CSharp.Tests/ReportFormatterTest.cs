@@ -37,4 +37,18 @@ public sealed class ReportFormatterTest
         Assert.True(report.IndexOf("high", StringComparison.Ordinal) < report.IndexOf("low", StringComparison.Ordinal));
         Assert.True(report.IndexOf("low", StringComparison.Ordinal) < report.IndexOf("unknown", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void FormatsAllUnknownEntriesWithoutThrowing()
+    {
+        var first = new MethodMetrics("aaa", "demo.Sample", 1, null, null);
+        var second = new MethodMetrics("bbb", "demo.Sample", 2, null, null);
+        var third = new MethodMetrics("ccc", "demo.Sample", 3, null, null);
+
+        string report = ReportFormatter.Format([first, second, third]);
+
+        Assert.Contains("aaa", report, StringComparison.Ordinal);
+        Assert.Contains("bbb", report, StringComparison.Ordinal);
+        Assert.Contains("ccc", report, StringComparison.Ordinal);
+    }
 }

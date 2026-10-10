@@ -309,4 +309,94 @@ public sealed class CSharpMethodParserTest
             },
             methods);
     }
+
+    [Fact]
+    public void CountsPatternCaseLabels()
+    {
+        string source = """
+            class Sample {
+                int Classify(object value) {
+                    switch (value) {
+                        case int i:
+                            return 1;
+                        case string s:
+                            return 2;
+                        default:
+                            return 0;
+                    }
+                }
+            }
+            """;
+
+        var methods = CSharpMethodParser.Parse(source);
+
+        Assert.Equal(
+            new List<MethodDescriptor>
+            {
+                new("Classify", 2, 11, 4),
+            },
+            methods);
+    }
+
+    [Fact]
+    public void SkipsAbstractMethodWithBody()
+    {
+        string source = """
+            abstract class Sample {
+                abstract int Missing() {
+                    return 1;
+                }
+
+                int Present() {
+                    return 2;
+                }
+            }
+            """;
+
+        var methods = CSharpMethodParser.Parse(source);
+
+        Assert.Equal(new List<MethodDescriptor> { new("Present", 6, 8, 1) }, methods);
+    }
+
+    [Fact]
+    public void SkipsMethodDeclarationOutsideAnyType()
+    {
+        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("class Sample {}\n");
+        var collector = new MethodCollector(tree);
+        var orphan = Microsoft.CodeAnalysis.CSharp.SyntaxFactory.MethodDeclaration(
+            Microsoft.CodeAnalysis.CSharp.SyntaxFactory.PredefinedType(
+                Microsoft.CodeAnalysis.CSharp.SyntaxFactory.Token(
+                    Microsoft.CodeAnalysis.CSharp.SyntaxKind.IntKeyword)),
+            "Orphan")
+            .WithBody(Microsoft.CodeAnalysis.CSharp.SyntaxFactory.Block());
+
+        collector.VisitMethodDeclaration(orphan);
+
+        Assert.Empty(collector.Methods);
+    }
+
+    [Fact]
+    public void NestedTypeDeclarationsDoNotChangeComplexity()
+    {
+        var walker = new CcWalker();
+        var classNode = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("class Local {}\n")
+            .GetRoot().DescendantNodes()
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax>().Single();
+        var structNode = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("struct Local {}\n")
+            .GetRoot().DescendantNodes()
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>().Single();
+        var recordNode = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("record Local(int X);\n")
+            .GetRoot().DescendantNodes()
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.RecordDeclarationSyntax>().Single();
+        var interfaceNode = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("interface Local {}\n")
+            .GetRoot().DescendantNodes()
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.InterfaceDeclarationSyntax>().Single();
+
+        walker.VisitClassDeclaration(classNode);
+        walker.VisitStructDeclaration(structNode);
+        walker.VisitRecordDeclaration(recordNode);
+        walker.VisitInterfaceDeclaration(interfaceNode);
+
+        Assert.Equal(1, walker.Complexity);
+    }
 }

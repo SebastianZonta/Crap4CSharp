@@ -131,6 +131,67 @@ public sealed class CoberturaCoverageParserTest
         Assert.Throws<InvalidOperationException>(() => CoberturaCoverageParser.Parse(path));
     }
 
+    [Fact]
+    public void EmptyCoverageReturnsEmptyWithoutThrowing()
+    {
+        string path = WriteTempXml("""
+            <coverage>
+              <packages />
+            </coverage>
+            """);
+
+        Assert.Empty(CoberturaCoverageParser.Parse(path));
+    }
+
+    [Fact]
+    public void SkipsMethodsWithoutClassOrNameOrLines()
+    {
+        string path = WriteTempXml("""
+            <coverage>
+              <packages>
+                <package name="demo">
+                  <classes>
+                    <class filename="NoName.cs">
+                      <methods>
+                        <method name="Orphan" signature="()V">
+                          <lines>
+                            <line number="3" hits="1" branch="false" />
+                          </lines>
+                        </method>
+                      </methods>
+                    </class>
+                    <class name="demo/Sample" filename="Sample.cs">
+                      <methods>
+                        <method name="Empty" signature="()V" />
+                        <method name="NoLines" signature="()V">
+                          <lines>
+                          </lines>
+                        </method>
+                        <method signature="()V">
+                          <lines>
+                            <line number="9" hits="1" branch="false" />
+                          </lines>
+                        </method>
+                        <method name="Bare" signature="()V">
+                          <lines>
+                            <line number="11" branch="false" />
+                          </lines>
+                        </method>
+                      </methods>
+                    </class>
+                  </classes>
+                </package>
+              </packages>
+            </coverage>
+            """);
+
+        var result = CoberturaCoverageParser.Parse(path);
+
+        // Bare has no hits attribute (missed) with a valid line number.
+        Assert.Single(result);
+        Assert.Equal((1, 0), result["demo.Sample#Bare:11"]);
+    }
+
     private static string WriteTempXml(string xml)
     {
         string path = Path.Combine(Path.GetTempPath(), "cobertura-" + Guid.NewGuid().ToString("N") + ".xml");

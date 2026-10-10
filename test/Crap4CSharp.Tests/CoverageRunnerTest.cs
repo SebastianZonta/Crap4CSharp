@@ -101,6 +101,53 @@ public sealed class CoverageRunnerTest : IDisposable
             () => runner.GenerateCoverageAsync(missing));
     }
 
+    [Fact]
+    public async Task DeletesStaleCoverageFileAtTestResultsPath()
+    {
+        string resultsPath = Path.Combine(_tempDir, "TestResults");
+        await File.WriteAllTextAsync(resultsPath, "stale");
+
+        var executor = new RecordingExecutor(0);
+        var runner = new CoverageRunner(executor);
+
+        await runner.GenerateCoverageAsync(_tempDir);
+
+        Assert.False(File.Exists(resultsPath));
+        Assert.Single(executor.Commands);
+    }
+
+    [Fact]
+    public void WrapsDeleteFailureAsInvalidOperation()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        string resultsDir = Path.Combine(_tempDir, "TestResults");
+        Directory.CreateDirectory(resultsDir);
+        File.WriteAllText(Path.Combine(resultsDir, "locked.xml"), "stale");
+        // Drop write permission so the recursive delete fails.
+        const UnixFileMode readExecute =
+            UnixFileMode.UserRead | UnixFileMode.UserExecute |
+            UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+            UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
+        const UnixFileMode readWriteExecute = readExecute | UnixFileMode.UserWrite;
+        File.SetUnixFileMode(resultsDir, readExecute);
+        try
+        {
+            var runner = new CoverageRunner(new RecordingExecutor(0));
+
+            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+                () => runner.GenerateCoverage(_tempDir));
+
+            Assert.StartsWith("Failed deleting stale coverage:", ex.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.SetUnixFileMode(resultsDir, readWriteExecute);
+        }
+    }
+
     private sealed class RecordingExecutor(int exitCode) : ICommandExecutor
     {
         internal readonly List<IReadOnlyList<string>> Commands = [];

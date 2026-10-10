@@ -188,6 +188,45 @@ public sealed class ChangedFileDetectorTest : IDisposable
             () => ChangedFileDetector.ChangedCsFilesAsync(_tempDir, cancelled.Token));
     }
 
+    [Fact]
+    public void MissingProjectRootThrowsDirectoryNotFound()
+    {
+        string missing = Path.Combine(_tempDir, "does-not-exist");
+
+        Assert.Throws<DirectoryNotFoundException>(
+            () => ChangedFileDetector.ChangedCsFiles(missing));
+    }
+
+    [Fact]
+    public async Task NullProjectRootThrowsArgumentNull()
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => ChangedFileDetector.ChangedCsFilesAsync(null!));
+    }
+
+    [Fact]
+    public void DetectsStagedRenameUnderNewName()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        Run("git init", _tempDir);
+        Run("git config user.email test@example.com", _tempDir);
+        Run("git config user.name test", _tempDir);
+
+        string src = Path.Combine(_tempDir, "src");
+        Directory.CreateDirectory(src);
+        File.WriteAllText(Path.Combine(src, "Old.cs"), "class Old {}\n");
+        Run("git add .", _tempDir);
+        Run("git commit -m init", _tempDir);
+        Run("git mv src/Old.cs src/New.cs", _tempDir);
+
+        var changed = ChangedFileDetector.ChangedCsFiles(_tempDir);
+
+        Assert.Equal(new[] { Path.Combine(src, "New.cs") }, changed);
+    }
+
     // Sync entry points compared against their async twins; kept behind
     // non-async helpers so the async tests above stay analyzer-clean.
     private static IReadOnlyList<string> SyncChangedFiles(string dir) =>

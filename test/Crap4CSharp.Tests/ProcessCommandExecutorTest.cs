@@ -61,6 +61,22 @@ public sealed class ProcessCommandExecutorTest : IDisposable
     }
 
     [Fact]
+    public async Task EmptyCommandThrowsArgumentException()
+    {
+        ArgumentException ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => new ProcessCommandExecutor().RunAsync([], _tempDir));
+
+        Assert.Equal("args", ex.ParamName);
+    }
+
+    [Fact]
+    public async Task NullCommandThrowsArgumentNullException()
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => new ProcessCommandExecutor().RunAsync(null!, _tempDir));
+    }
+
+    [Fact]
     public async Task PreCancelledTokenKillsLongRunningProcessFast()
     {
         if (!OperatingSystem.IsLinux())
