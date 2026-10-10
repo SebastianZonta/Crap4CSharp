@@ -1,35 +1,35 @@
-# Publicación a NuGet.org (Trusted Publishing, sin API key de larga vida)
+# Publishing to NuGet.org (Trusted Publishing, no long-lived API key)
 
-CI usa OIDC: el workflow pide una key temporal (1 h) vía `NuGet/login@v1`.
-No hay credenciales en el repo: el workflow solo consume el secret
-`NUGET_USER` (tu nombre de usuario de nuget.org, no sensible) y el token
-OIDC efímero de GitHub Actions.
+CI uses OIDC: the workflow requests a short-lived key (1 h) via
+`NuGet/login@v1`. There are no credentials in the repo: the workflow only
+consumes the `NUGET_USER` secret (your nuget.org username, not sensitive)
+plus GitHub Actions' ephemeral OIDC token.
 
-## Requisito único en nuget.org (lo haces tú una vez)
+## One-time setup on nuget.org (you do this once)
 
-Sesión iniciada → tu usuario → **Trusted Publishing** → añadir política:
+Signed in → your username → **Trusted Publishing** → add a policy:
 
-- Repository Owner: el owner del repo en GitHub
-- Repository: el nombre del repo
-- Workflow File: `publish.yml` (solo el nombre del archivo)
-- Environment: vacío (el workflow no usa environments)
+- Repository Owner: the GitHub repo owner
+- Repository: the repo name
+- Workflow File: `publish.yml` (file name only)
+- Environment: empty (the workflow uses no environments)
 
-Sin esa política, el paso `NuGet login` falla y nada se publica. En repos
-privados la política nace temporal (7 días) y queda permanente tras el
-primer push exitoso.
+Without that policy, the `NuGet login` step fails and nothing is
+published. On private repos the policy starts temporarily active
+(7 days) and becomes permanent after the first successful push.
 
-## Disparo
+## Trigger
 
-Crear un tag `v*` (p. ej. `v0.1.0-beta.1`): la versión del tag —sin la `v`—
-es la que se empaqueta (`-p:Version=`), por lo que el tag es la fuente de
-verdad y el `Version` del csproj solo rige para builds locales.
+Create a `v*` tag (e.g. `v0.1.0-beta.1`): the tag version —without the
+`v`— is what gets packed (`-p:Version=`), so the tag is the source of
+truth and the csproj `Version` only applies to local builds.
 
-## Push manual desde CLI (único uso legítimo de API key)
+## Manual push from the CLI (the only legitimate API-key use)
 
-Las API keys siguen valiendo para línea de comandos: créala en
-**Account settings → API Keys** (scope **Push**, glob `crap4csharp*`,
-con expiración), cópiala una vez y úsala así:
+API keys still work for the command line: create one under
+**Account settings → API Keys** (**Push** scope, `crap4csharp*` glob,
+with expiry), copy it once, and use it like this:
 
 `dotnet nuget push <nupkg> --api-key <key> --source https://api.nuget.org/v3/index.json`
 
-No la guardes como secret del repo: CI ya no la necesita.
+Do not store it as a repo secret: CI no longer needs it.
