@@ -11,6 +11,11 @@
 - `dotnet run --project src/Crap4CSharp -- <args>` — run locally
   (`--help`, no args = all of `src/`, `--changed`, `<path...>`)
 
+## Testing (mandatory delegation)
+
+- Dispatch all unit-test work (writing, fixing, running: single files and full suite) through vanilla subagent delegation; the main session never authors or runs tests itself.
+- Each testing subagent validates through the delegate plugin: it spawns one nested validator child via its `execute` → `tools.delegate` call, which re-checks the work (diff scope, green build + suite) and steers it back on course. No exceptions, every time.
+
 ## Architecture
 
 `Program.Main` → `CliApplication.Execute` (`src/Crap4CSharp/CliApplication.cs:19`):
