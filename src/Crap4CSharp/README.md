@@ -28,11 +28,11 @@ Global (public feed):
 dotnet tool install -g crap4csharp
 ```
 
-While only prerelease versions exist, add `--prerelease` (or pin
-`--version x.y.z`):
+Prerelease or pinned version:
 
 ```bash
 dotnet tool install -g crap4csharp --prerelease
+dotnet tool install -g crap4csharp --version x.y.z
 ```
 
 Pinned per repo (local tool manifest):
