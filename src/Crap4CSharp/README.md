@@ -13,7 +13,7 @@ and reports CRAP scores. Quality gate: fails when the worst score exceeds the th
 - `coverage` is the method coverage fraction `0.0..1.0` from Cobertura line-rate data.
 - Unknown coverage is reported as `N/A` and sorts after numeric scores.
 
-Threshold: `8.0`. Max numeric CRAP `> 8.0` fails the run.
+Threshold: `8.0` by default (configurable via `--threshold`). Max numeric CRAP `>` threshold fails the run.
 
 ## Prerequisite
 
@@ -46,24 +46,43 @@ dotnet tool uninstall -g crap4csharp
 
 ```bash
 crap4csharp --help
+crap4csharp --version
 crap4csharp
 crap4csharp --changed
 crap4csharp src/MyApp/Sample.cs
 crap4csharp module-a module-b
+crap4csharp --path ./MySolution.sln
+crap4csharp --threshold 15 --format json --output reports/crap.json
+crap4csharp --top 20 --min-cc 3 --no-coverage
 ```
 
-- `(no args)` — analyze all C# files under `src/`
-- `--changed` — analyze changed C# files under `src/` (`git status --porcelain`)
+- `(no args)` — analyze all C# files under `<root>/src/`
+- `--changed` — analyze changed C# files under `<root>/src/` (`git status --porcelain`)
 - `<path...>` — analyze files, or for directory args analyze `<dir>/src/**/*.cs`
-- `--help` — print usage
+- `--path <dir|sln|csproj>` — workspace root (default: current directory).
+  A `.sln`/`.csproj` file resolves to its directory. Positional paths resolve
+  against this root.
+- `--output, -o <file>` — write the report to `<file>` too (directories created).
+  The report is always printed to stdout as well.
+- `--threshold, -t <n>` — CRAP gate (default `8.0`). Exit `2` when max CRAP `> n`.
+- `--format, -f <text|json|csv>` — report format (default `text`).
+- `--top <n>` — show only the `n` worst methods.
+- `--min-cc <n>` — hide methods with complexity below `n` (default `1`).
+- `--no-coverage` — skip the `dotnet test` coverage run; reuse existing
+  `TestResults/**/coverage.cobertura.xml` (missing → `N/A`).
+- `--help, -h` — print usage; `--version` — print version.
+- `--` — treat all following args as paths (e.g. files starting with `-`).
+- Both `--flag value` and `--flag=value` forms are accepted.
+- Unknown `--*` options fail with exit `1`.
 
 Empty selection prints `No C# files to analyze.` and exits successfully.
 
 ## Exit codes
 
 - `0` success, threshold respected (includes empty selection)
-- `1` invalid CLI usage (`--changed` cannot be combined with file arguments)
-- `2` CRAP threshold exceeded (`> 8.0`)
+- `1` invalid CLI usage (unknown option, bad flag value,
+  `--changed` cannot be combined with file arguments)
+- `2` CRAP threshold exceeded (`>` threshold, default `8.0`)
 
 ## Limitations (known)
 

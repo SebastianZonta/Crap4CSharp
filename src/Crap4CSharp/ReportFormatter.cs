@@ -7,31 +7,23 @@ internal static class ReportFormatter
     private static readonly string Header = string.Create(
         CultureInfo.InvariantCulture, $"{"Method",-30} {"Class",-35} {"CC",4} {"Cov%",7} {"CRAP",8}");
     private static readonly string Separator = new('-', Header.Length);
-    // Ascending key order (null smallest), so descending puts nulls last.
-    private static readonly Comparer<double?> CrapKeyComparer = Comparer<double?>.Create(
-        static (a, b) => (a, b) switch
-        {
-            (null, null) => 0,
-            (null, _) => -1,
-            (_, null) => 1,
-            _ => a.Value!.CompareTo(b.Value!),
-        });
     private const int EstimatedRowLength = 90;
 
-    public static string Format(IReadOnlyList<MethodMetrics> entries)
+    public static string Format(IReadOnlyList<MethodMetrics> entries) => FormatText(entries);
+
+    public static string FormatText(IReadOnlyList<MethodMetrics> entries)
     {
         ArgumentNullException.ThrowIfNull(entries);
-        IEnumerable<MethodMetrics> sorted =
-            entries.OrderByDescending(static e => e.CrapScore, CrapKeyComparer);
+        int[] order = SortedIndexes(entries);
 
         var builder = new System.Text.StringBuilder((entries.Count + 4) * EstimatedRowLength);
-        builder.Append("CRAP Report\n");
-        builder.Append("===========\n");
+        builder.Append(ToolConstants.ReportTitle);
         builder.Append(Header).Append('\n');
         builder.Append(Separator).Append('\n');
 
-        foreach (var entry in sorted)
+        foreach (int index in order)
         {
+            var entry = entries[index];
             string coverage = FormatCoverage(entry.CoveragePercent);
             string crap = FormatCrap(entry.CrapScore);
             builder.Append(CultureInfo.InvariantCulture, $"{entry.MethodName,-30} {entry.ClassName,-35} {entry.Complexity,4} {coverage,7} {crap,8}\n");
@@ -47,7 +39,9 @@ internal static class ReportFormatter
             return "  N/A ";
         }
 
-        return string.Create(CultureInfo.InvariantCulture, $"{coverage.Value,5:F1}%");
+        Span<char> buffer = stackalloc char[32];
+        coverage.Value.TryFormat(buffer, out int written, "F1", CultureInfo.InvariantCulture);
+        return string.Create(null, $"{buffer[..written],5}%");
     }
 
     private static string FormatCrap(double? score)
@@ -57,6 +51,145 @@ internal static class ReportFormatter
             return "     N/A";
         }
 
-        return string.Create(CultureInfo.InvariantCulture, $"{score.Value,8:F1}");
+        Span<char> buffer = stackalloc char[32];
+        score.Value.TryFormat(buffer, out int written, "F1", CultureInfo.InvariantCulture);
+        return string.Create(null, $"{buffer[..written],8}");
+    }
+
+    public static string FormatAs(IReadOnlyList<MethodMetrics> entries, string format) =>
+        format switch
+        {
+            "json" => FormatJson(entries),
+            "csv" => FormatCsv(entries),
+            _ => FormatText(entries),
+        };
+
+    public static string FormatJson(IReadOnlyList<MethodMetrics> entries)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        int[] order = SortedIndexes(entries);
+        var builder = new System.Text.StringBuilder((entries.Count + 2) * EstimatedRowLength);
+        builder.Append("[\n");
+        for (int k = 0; k < order.Length; k++)
+        {
+            var e = entries[order[k]];
+            builder.Append("  {\"method\": \"");
+            AppendJsonEscaped(builder, e.MethodName);
+            builder.Append("\", \"class\": \"");
+            AppendJsonEscaped(builder, e.ClassName);
+            builder.Append(CultureInfo.InvariantCulture, $"\", \"cc\": {e.Complexity}, \"coverage\": ");
+            AppendNullableNumber(builder, e.CoveragePercent);
+            builder.Append(", \"crap\": ");
+            AppendNullableNumber(builder, e.CrapScore);
+            builder.Append('}');
+            builder.Append(k + 1 < order.Length ? ",\n" : "\n");
+        }
+        builder.Append("]\n");
+        return builder.ToString();
+    }
+
+    public static string FormatCsv(IReadOnlyList<MethodMetrics> entries)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        int[] order = SortedIndexes(entries);
+        var builder = new System.Text.StringBuilder((entries.Count + 1) * EstimatedRowLength);
+        builder.Append("method,class,cc,coverage,crap\n");
+        foreach (int index in order)
+        {
+            var e = entries[index];
+            AppendCsvEscaped(builder, e.MethodName);
+            builder.Append(',');
+            AppendCsvEscaped(builder, e.ClassName);
+            builder.Append(',');
+            builder.Append(CultureInfo.InvariantCulture, $"{e.Complexity},");
+            AppendNullableNumber(builder, e.CoveragePercent, emptyForNull: true);
+            builder.Append(',');
+            AppendNullableNumber(builder, e.CrapScore, emptyForNull: true);
+            builder.Append('\n');
+        }
+        return builder.ToString();
+    }
+
+    // In-place span sort of row indexes: single-key CRAP descending with
+    // nulls-last (via the shared key comparer), ties keep input order so the
+    // observable row order matches the previous stable ordering.
+    private static int[] SortedIndexes(IReadOnlyList<MethodMetrics> entries)
+    {
+        int[] order = new int[entries.Count];
+        for (int i = 0; i < order.Length; i++)
+        {
+            order[i] = i;
+        }
+        MemoryExtensions.Sort(order.AsSpan(), (a, b) =>
+        {
+            int byCrap = CrapScore.CrapKeyComparer.Compare(entries[b].CrapScore, entries[a].CrapScore);
+            return byCrap != 0 ? byCrap : a.CompareTo(b);
+        });
+        return order;
+    }
+
+    private static void AppendNullableNumber(System.Text.StringBuilder builder, double? value, bool emptyForNull = false)
+    {
+        if (value is null)
+        {
+            if (!emptyForNull)
+            {
+                builder.Append("null");
+            }
+            return;
+        }
+        Span<char> buffer = stackalloc char[32];
+        value.Value.TryFormat(buffer, out int written, "F1", CultureInfo.InvariantCulture);
+        builder.Append(buffer[..written]);
+    }
+
+    private static void AppendJsonEscaped(System.Text.StringBuilder builder, ReadOnlySpan<char> value)
+    {
+        foreach (char c in value)
+        {
+            if (c == '\\')
+            {
+                builder.Append("\\\\");
+            }
+            else if (c == '"')
+            {
+                builder.Append("\\\"");
+            }
+            else
+            {
+                builder.Append(c);
+            }
+        }
+    }
+
+    private static void AppendCsvEscaped(System.Text.StringBuilder builder, ReadOnlySpan<char> value)
+    {
+        bool needsQuotes = false;
+        foreach (char c in value)
+        {
+            if (c == ',' || c == '"' || c == '\n')
+            {
+                needsQuotes = true;
+                break;
+            }
+        }
+        if (!needsQuotes)
+        {
+            builder.Append(value);
+            return;
+        }
+        builder.Append('"');
+        foreach (char c in value)
+        {
+            if (c == '"')
+            {
+                builder.Append("\"\"");
+            }
+            else
+            {
+                builder.Append(c);
+            }
+        }
+        builder.Append('"');
     }
 }

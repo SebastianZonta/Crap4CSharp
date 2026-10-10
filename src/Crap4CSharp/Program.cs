@@ -49,25 +49,35 @@ internal static class Program
 
     internal static string Usage() => UsageText;
 
+    internal static string Version()
+    {
+        var v = typeof(Program).Assembly.GetName().Version;
+        return "crap4csharp " + (v is null ? "0.0.0" : $"{v.Major}.{v.Minor}.{v.Build}");
+    }
+
     private const string UsageText =
         """
         Usage:
-          crap4csharp            Analyze all C# files under src/
-          crap4csharp --changed  Analyze changed C# files under src/
-          crap4csharp <path...>  Analyze files, or for directory args analyze <dir>/src/**/*.cs
-          crap4csharp --help     Print this help message
+          crap4csharp [options] [--] [<path...>]
+
+        Modes (positional, backward compatible):
+          (no args)            Analyze all C# files under <root>/src/
+          --changed            Analyze changed C# files under <root>/src/ (git status)
+          <path...>            Analyze files, or for directory args analyze <dir>/src/**/*.cs
+
+        Options:
+          --path <dir|sln|csproj>  Workspace root (default: current directory).
+                                   A .sln/.csproj file resolves to its directory.
+          --output, -o <file>      Write the report to <file> too (dirs created).
+          --threshold, -t <n>      CRAP gate (default 8.0). Fails with exit 2 when max > n.
+          --format, -f <fmt>       Report format: text (default), json, csv.
+          --top <n>                Show only the n worst methods.
+          --min-cc <n>             Hide methods with complexity below n (default 1).
+          --no-coverage            Skip 'dotnet test' coverage run; reuse existing XML.
+          --help, -h               Print this help message.
+          --version                Print version.
         """;
 
-    internal static double MaxCrap(IEnumerable<MethodMetrics> metrics)
-    {
-        double max = 0.0;
-        foreach (MethodMetrics metric in metrics)
-        {
-            if (metric.CrapScore is not null)
-            {
-                max = Math.Max(max, metric.CrapScore.Value);
-            }
-        }
-        return max;
-    }
+    internal static double MaxCrap(IEnumerable<MethodMetrics> metrics) =>
+        CrapScore.MaxCrap(metrics);
 }

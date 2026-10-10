@@ -113,7 +113,7 @@ internal static class CoberturaCoverageParser
             return;
         }
 
-        coverage[currentClass + "#" + methodName + ":" + minLine] = (missed, covered);
+        coverage[currentClass.CoverageKey(methodName, minLine)] = (missed, covered);
     }
 
     private static string NormalizeClassName(string? className)
@@ -122,7 +122,17 @@ internal static class CoberturaCoverageParser
         {
             return string.Empty;
         }
-        return className.Replace('/', '.').Replace('\\', '.');
+        return string.Create(className.Length, className, static (span, name) =>
+        {
+            name.AsSpan().CopyTo(span);
+            for (int i = 0; i < span.Length; i++)
+            {
+                if (span[i] == '/' || span[i] == '\\')
+                {
+                    span[i] = '.';
+                }
+            }
+        });
     }
 
     private static int ParseInt(string? value)
@@ -131,7 +141,7 @@ internal static class CoberturaCoverageParser
         {
             return 0;
         }
-        if (int.TryParse(value.AsSpan(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int result))
+        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int result))
         {
             return result;
         }

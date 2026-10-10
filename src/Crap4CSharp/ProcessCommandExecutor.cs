@@ -42,13 +42,16 @@ internal sealed class ProcessCommandExecutor : ICommandExecutor
         }
         catch (OperationCanceledException)
         {
-            TryKillTree(process);
+            process.TryKillTree();
             throw;
         }
         return process.ExitCode;
     }
+}
 
-    private static void TryKillTree(Process process)
+internal static class ProcessExtensions
+{
+    internal static void TryKillTree(this Process process)
     {
         try
         {

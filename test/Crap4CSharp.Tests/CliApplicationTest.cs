@@ -529,6 +529,326 @@ public sealed class CliApplicationTest : IDisposable
         Assert.Contains("Warning: Cobertura XML not found", err.ToString(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ThresholdExceededOverloadUsesGivenThreshold()
+    {
+        Assert.False(CliApplication.ThresholdExceeded(8.0, 8.0));
+        Assert.True(CliApplication.ThresholdExceeded(8.1, 8.0));
+        Assert.False(CliApplication.ThresholdExceeded(5.0, 8.0));
+        Assert.True(CliApplication.ThresholdExceeded(5.0, 4.0));
+        Assert.False(CliApplication.ThresholdExceeded(0.0, 8.0));
+    }
+
+    [Fact]
+    public void CustomThresholdGatesExitCodeAndMessage()
+    {
+        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        Directory.CreateDirectory(sourceRoot);
+        string source = Path.Combine(sourceRoot, "Sample.cs");
+        File.WriteAllText(source, """
+            namespace Demo;
+
+            class Sample {
+                int Risky(int x) {
+                    int r = 0;
+                    if (x > 1) r += 1;
+                    if (x > 2) r += 2;
+                    if (x > 3) r += 4;
+                    if (x > 4) r += 8;
+                    if (x > 5) r += 16;
+                    if (x > 6) r += 32;
+                    if (x > 7) r += 64;
+                    if (x > 8) r += 128;
+                    if (x > 9) r += 256;
+                    return r;
+                }
+            }
+            """);
+        string resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
+        var coverageRunner = new CoverageRunner(new FakeExecutor((_, _) =>
+        {
+            Directory.CreateDirectory(resultsDir);
+            var lines = string.Concat(Enumerable.Range(4, 13)
+                .Select(n => $"                              <line number=\"{n}\" hits=\"0\"/>\n"));
+            File.WriteAllText(Path.Combine(resultsDir, "coverage.cobertura.xml"), $$"""
+                <coverage>
+                  <packages>
+                    <package name="Demo">
+                      <classes>
+                        <class name="Demo/Sample" filename="Sample.cs">
+                          <methods>
+                            <method name="Risky" signature="()V">
+                              <lines>
+                {{lines}}              </lines>
+                            </method>
+                          </methods>
+                        </class>
+                      </classes>
+                    </package>
+                  </packages>
+                </coverage>
+                """);
+            return 0;
+        }));
+        string rel = Path.Combine("src", "Demo", "Sample.cs");
+
+        using (var output = new StringWriter())
+        using (var err = new StringWriter())
+        {
+            int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+                .Execute([rel, "--threshold", "1000"]);
+            Assert.Equal(0, exit);
+            Assert.DoesNotContain("CRAP threshold exceeded", err.ToString(), StringComparison.Ordinal);
+        }
+
+        using (var output = new StringWriter())
+        using (var err = new StringWriter())
+        {
+            int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+                .Execute([rel, "--threshold=1.5"]);
+            Assert.Equal(2, exit);
+            Assert.Contains("> 1.5", err.ToString(), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void ResolveRootHandlesNullDirAndFile()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+        var app = new CliApplication(_tempDir, output, err, NoopCoverage);
+        string root = Path.GetFullPath(_tempDir);
+
+        Assert.Equal(root, app.ResolveRoot(null));
+        Assert.Equal(root, app.ResolveRoot("  "));
+
+        string sub = Path.Combine(_tempDir, "sub");
+        Directory.CreateDirectory(sub);
+        Assert.Equal(Path.GetFullPath(sub), app.ResolveRoot("sub"));
+
+        string file = Path.Combine(sub, "App.sln");
+        File.WriteAllText(file, "");
+        Assert.Equal(Path.GetFullPath(sub), app.ResolveRoot(Path.Combine("sub", "App.sln")));
+        Assert.Equal(Path.GetFullPath(sub), app.ResolveRoot(file));
+    }
+
+    [Fact]
+    public void OutputFlagWritesReportFileMatchingStdout()
+    {
+        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        Directory.CreateDirectory(sourceRoot);
+        File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
+            namespace Demo;
+
+            class Sample {
+                int Alpha() {
+                    return 1;
+                }
+            }
+            """);
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+            .Execute([Path.Combine("src", "Demo", "Sample.cs"), "--output", "report.txt"]);
+
+        Assert.Equal(0, exit);
+        string file = Path.Combine(_tempDir, "report.txt");
+        Assert.True(File.Exists(file));
+        Assert.Equal(output.ToString(), File.ReadAllText(file));
+    }
+
+    [Fact]
+    public void JsonFormatProducesJsonArray()
+    {
+        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        Directory.CreateDirectory(sourceRoot);
+        File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
+            namespace Demo;
+
+            class Sample {
+                int Alpha() {
+                    return 1;
+                }
+            }
+            """);
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+            .Execute([Path.Combine("src", "Demo", "Sample.cs"), "--format", "json"]);
+
+        Assert.Equal(0, exit);
+        string report = output.ToString();
+        Assert.StartsWith("[\n", report, StringComparison.Ordinal);
+        Assert.Contains("\"method\": \"Alpha\"", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CsvFormatProducesHeaderRow()
+    {
+        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        Directory.CreateDirectory(sourceRoot);
+        File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
+            namespace Demo;
+
+            class Sample {
+                int Alpha() {
+                    return 1;
+                }
+            }
+            """);
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+            .Execute([Path.Combine("src", "Demo", "Sample.cs"), "--format=csv"]);
+
+        Assert.Equal(0, exit);
+        string report = output.ToString();
+        Assert.StartsWith("method,class,cc,coverage,crap\n", report, StringComparison.Ordinal);
+        Assert.Contains("Alpha", report, StringComparison.Ordinal);
+    }
+
+    private const string TwoMethodSource = """
+        namespace Demo;
+
+        class Sample {
+            int Simple() {
+                return 1;
+            }
+            int Branchy(bool a) {
+                if (a) {
+                    return 1;
+                }
+                return 0;
+            }
+        }
+        """;
+
+    private string WriteTwoMethodSample()
+    {
+        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        Directory.CreateDirectory(sourceRoot);
+        string source = Path.Combine(sourceRoot, "Sample.cs");
+        File.WriteAllText(source, TwoMethodSource);
+        return Path.Combine("src", "Demo", "Sample.cs");
+    }
+
+    [Fact]
+    public void MinCcFiltersLowComplexityMethods()
+    {
+        string rel = WriteTwoMethodSample();
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+            .Execute([rel, "--min-cc", "2"]);
+
+        Assert.Equal(0, exit);
+        string report = output.ToString();
+        Assert.Contains("Branchy", report, StringComparison.Ordinal);
+        Assert.DoesNotContain("Simple", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TopKeepsOnlyNWorstMethods()
+    {
+        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        Directory.CreateDirectory(sourceRoot);
+        File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), TwoMethodSource);
+        string resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
+        var coverageRunner = new CoverageRunner(new FakeExecutor((_, _) =>
+        {
+            Directory.CreateDirectory(resultsDir);
+            File.WriteAllText(Path.Combine(resultsDir, "coverage.cobertura.xml"), """
+                <coverage>
+                  <packages>
+                    <package name="Demo">
+                      <classes>
+                        <class name="Demo/Sample" filename="Sample.cs">
+                          <methods>
+                            <method name="Simple" signature="()V">
+                              <lines>
+                                <line number="4" hits="1"/>
+                                <line number="5" hits="1"/>
+                              </lines>
+                            </method>
+                            <method name="Branchy" signature="()V">
+                              <lines>
+                                <line number="7" hits="1"/>
+                                <line number="8" hits="1"/>
+                              </lines>
+                            </method>
+                          </methods>
+                        </class>
+                      </classes>
+                    </package>
+                  </packages>
+                </coverage>
+                """);
+            return 0;
+        }));
+        string rel = Path.Combine("src", "Demo", "Sample.cs");
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+            .Execute([rel, "--top", "1"]);
+
+        Assert.Equal(0, exit);
+        string report = output.ToString();
+        Assert.Contains("Branchy", report, StringComparison.Ordinal);
+        Assert.DoesNotContain("Simple", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NoCoverageSkipsCoverageRunner()
+    {
+        string rel = WriteTwoMethodSample();
+        int calls = 0;
+        var countingRunner = new CoverageRunner(new FakeExecutor((_, _) =>
+        {
+            calls++;
+            return 0;
+        }));
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, countingRunner)
+            .Execute([rel, "--no-coverage"]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(0, calls);
+        Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VersionFlagPrintsVersion()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+            .Execute(["--version"]);
+
+        Assert.Equal(0, exit);
+        Assert.Contains("crap4csharp", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnknownOptionReturnsOne()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+            .Execute(["--bogus"]);
+
+        Assert.Equal(1, exit);
+        Assert.Contains("Unknown option", err.ToString(), StringComparison.Ordinal);
+    }
+
     private static void Run(string command, string dir)
     {
         var startInfo = new System.Diagnostics.ProcessStartInfo("sh", $"-c \"{command}\"")

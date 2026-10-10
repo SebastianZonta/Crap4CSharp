@@ -42,7 +42,7 @@ internal static class ChangedFileDetector
         }
         catch (OperationCanceledException)
         {
-            TryKillTree(process);
+            process.TryKillTree();
             throw;
         }
         string stdout = await stdoutTask.ConfigureAwait(false);
@@ -63,12 +63,12 @@ internal static class ChangedFileDetector
         string projectRoot, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(projectRoot);
-        string src = Path.GetFullPath(Path.Combine(projectRoot, "src"));
+        string src = Path.GetFullPath(Path.Combine(projectRoot, ToolConstants.SrcDirName));
         string prefix = src + Path.DirectorySeparatorChar;
         List<string> files = [];
         foreach (string path in await ChangedCsFilesAsync(projectRoot, cancellationToken).ConfigureAwait(false))
         {
-            if (IsUnderDirectory(path, src, prefix))
+            if (path.IsUnderDirectory(src, prefix))
             {
                 files.Add(path);
             }
@@ -76,10 +76,10 @@ internal static class ChangedFileDetector
         return files.ToArray();
     }
 
-    private static string[] ParseChangedFiles(string root, string stdout)
+    private static string[] ParseChangedFiles(ReadOnlySpan<char> root, ReadOnlySpan<char> stdout)
     {
         List<string> files = [];
-        ReadOnlySpan<char> output = stdout.AsSpan();
+        ReadOnlySpan<char> output = stdout;
         int start = 0;
         while (true)
         {
@@ -106,34 +106,24 @@ internal static class ChangedFileDetector
         return files.ToArray();
     }
 
-    private static string? ParseStatusLine(string root, ReadOnlySpan<char> line)
+    private static string? ParseStatusLine(ReadOnlySpan<char> root, ReadOnlySpan<char> line)
     {
-        if (!IsCandidateLine(line))
+        if (!line.IsCandidateLine())
         {
             return null;
         }
-        ReadOnlySpan<char> finalPath = RenameTarget(line.Slice(3).Trim());
+        ReadOnlySpan<char> finalPath = line.Slice(3).Trim().RenameTarget();
         if (!IsCsPath(finalPath))
         {
             return null;
         }
-        return Path.GetFullPath(Path.Combine(root, finalPath.ToString()));
+        return ToolConstants.CombineRooted(root, finalPath);
     }
 
-    public static bool IsCandidateLine(string? line)
-    {
-        if (line is null)
-        {
-            return false;
-        }
-        if (string.IsNullOrWhiteSpace(line))
-        {
-            return false;
-        }
-        return line.Length >= 4;
-    }
+    public static bool IsCandidateLine(this string? line) =>
+        line is not null && IsCandidateLine(line.AsSpan());
 
-    private static bool IsCandidateLine(ReadOnlySpan<char> line)
+    private static bool IsCandidateLine(this ReadOnlySpan<char> line)
     {
         if (line.Length < 4)
         {
@@ -149,19 +139,12 @@ internal static class ChangedFileDetector
         return false;
     }
 
-    public static string RenameTarget(string pathPart)
+    public static string RenameTarget(this string pathPart) =>
+        RenameTarget(pathPart.AsSpan()).ToString();
+
+    private static ReadOnlySpan<char> RenameTarget(this ReadOnlySpan<char> pathPart)
     {
         int index = pathPart.IndexOf(" -> ", StringComparison.Ordinal);
-        if (index < 0)
-        {
-            return pathPart;
-        }
-        return pathPart.Substring(index + 4);
-    }
-
-    private static ReadOnlySpan<char> RenameTarget(ReadOnlySpan<char> pathPart)
-    {
-        int index = pathPart.IndexOf(" -> ".AsSpan(), StringComparison.Ordinal);
         if (index < 0)
         {
             return pathPart;
@@ -170,25 +153,5 @@ internal static class ChangedFileDetector
     }
 
     private static bool IsCsPath(ReadOnlySpan<char> path) =>
-        path.EndsWith(".cs".AsSpan(), StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsUnderDirectory(string path, string directory, string prefix)
-    {
-        return path.Equals(directory, StringComparison.Ordinal)
-            || path.StartsWith(prefix, StringComparison.Ordinal);
-    }
-
-    private static void TryKillTree(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-        }
-        catch (Exception ex) when (ex is InvalidOperationException || ex is NotSupportedException)
-        {
-        }
-    }
+        path.EndsWith(ToolConstants.CSharpExtension, StringComparison.OrdinalIgnoreCase);
 }

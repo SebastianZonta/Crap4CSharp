@@ -2,14 +2,9 @@ namespace Crap4CSharp;
 
 internal sealed class CliApplication
 {
-    private static EnumerationOptions NewCoberturaEnumeration() => new()
-    {
-        RecurseSubdirectories = true,
-        IgnoreInaccessible = true,
-    };
+    internal const double DefaultThreshold = ToolConstants.DefaultCrapThreshold;
 
     private readonly string _projectRoot;
-    private readonly string _projectPrefix;
     private readonly TextWriter _out;
     private readonly TextWriter _err;
     private readonly CoverageRunner _coverageRunner;
@@ -18,7 +13,6 @@ internal sealed class CliApplication
         string projectRoot, TextWriter output, TextWriter err, CoverageRunner coverageRunner)
     {
         _projectRoot = Path.GetFullPath(projectRoot);
-        _projectPrefix = _projectRoot + Path.DirectorySeparatorChar;
         _out = output;
         _err = err;
         _coverageRunner = coverageRunner;
@@ -36,41 +30,96 @@ internal sealed class CliApplication
             return parse.ExitCode;
         }
         CliArguments parsed = parse.Arguments!;
-        IReadOnlyList<string> filesToAnalyze = await FilesForModeAsync(parsed, cancellationToken).ConfigureAwait(false);
-        if (filesToAnalyze.Count == 0)
+        if (parsed.Mode == CliMode.Version)
         {
-            await _out.WriteLineAsync("No C# files to analyze.").ConfigureAwait(false);
+            await _out.WriteLineAsync(Program.Version()).ConfigureAwait(false);
             return 0;
         }
 
-        List<MethodMetrics> metrics = await AnalyzeByModuleAsync(filesToAnalyze, cancellationToken).ConfigureAwait(false);
-        metrics.Sort(static (a, b) => CompareByCrapDesc(a, b));
-        await _out.WriteAsync(ReportFormatter.Format(metrics)).ConfigureAwait(false);
-
-        double max = Program.MaxCrap(metrics);
-        if (ThresholdExceeded(max))
+        string effectiveRoot = ResolveRoot(parsed.ProjectPath);
+        string effectivePrefix = effectiveRoot + Path.DirectorySeparatorChar;
+        IReadOnlyList<string> filesToAnalyze = await FilesForModeAsync(parsed, effectiveRoot, cancellationToken).ConfigureAwait(false);
+        if (filesToAnalyze.Count == 0)
         {
-            await _err.WriteLineAsync(string.Format(
-                System.Globalization.CultureInfo.InvariantCulture,
-                "CRAP threshold exceeded: {0:F1} > 8.0", max)).ConfigureAwait(false);
+            await _out.WriteLineAsync(ToolConstants.NoFilesMessage).ConfigureAwait(false);
+            return 0;
+        }
+
+        List<MethodMetrics> metrics = await AnalyzeByModuleAsync(
+            filesToAnalyze, effectiveRoot, effectivePrefix, parsed.NoCoverage, cancellationToken).ConfigureAwait(false);
+        metrics.Sort(CrapScore.CompareByCrapDesc);
+        if (parsed.MinComplexity > 1)
+        {
+            metrics.RemoveAll(m => m.Complexity < parsed.MinComplexity);
+        }
+        if (parsed.Top.HasValue && metrics.Count > parsed.Top.Value)
+        {
+            metrics.RemoveRange(parsed.Top.Value, metrics.Count - parsed.Top.Value);
+        }
+        string report = ReportFormatter.FormatAs(metrics, parsed.Format);
+        await _out.WriteAsync(report).ConfigureAwait(false);
+        if (parsed.OutputPath is not null)
+        {
+            await WriteReportFileAsync(parsed.OutputPath, report, cancellationToken).ConfigureAwait(false);
+        }
+
+        double max = metrics.MaxCrap();
+        if (ThresholdExceeded(max, parsed.Threshold))
+        {
+            await _err.WriteLineAsync(ToolConstants.ThresholdExceededMessage(max, parsed.Threshold)).ConfigureAwait(false);
             return 2;
         }
         return 0;
     }
 
+    private async Task WriteReportFileAsync(string outputPath, string report, CancellationToken cancellationToken)
+    {
+        string full = ToolConstants.CombineRooted(_projectRoot, outputPath);
+        string? dir = Path.GetDirectoryName(full);
+        if (dir is not null)
+        {
+            Directory.CreateDirectory(dir);
+        }
+        await File.WriteAllTextAsync(full, report, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal string ResolveRoot(string? projectPath)
+    {
+        if (string.IsNullOrWhiteSpace(projectPath))
+        {
+            return _projectRoot;
+        }
+        string combined = ToolConstants.CombineRooted(_projectRoot, projectPath);
+        try
+        {
+            if (File.Exists(combined))
+            {
+                return Path.GetDirectoryName(combined) ?? _projectRoot;
+            }
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+        {
+            return _projectRoot;
+        }
+        return combined;
+    }
+
     private async Task<List<MethodMetrics>> AnalyzeByModuleAsync(
-        IReadOnlyList<string> filesToAnalyze, CancellationToken cancellationToken)
+        IReadOnlyList<string> filesToAnalyze, string effectiveRoot, string effectivePrefix,
+        bool noCoverage, CancellationToken cancellationToken)
     {
         List<MethodMetrics> metrics = [];
-        foreach (var entry in GroupByModuleRoot(filesToAnalyze))
+        foreach (var entry in GroupByModuleRoot(filesToAnalyze, effectiveRoot, effectivePrefix))
         {
             string moduleRoot = entry.Key;
-            await _coverageRunner.GenerateCoverageAsync(moduleRoot, cancellationToken).ConfigureAwait(false);
+            if (!noCoverage)
+            {
+                await _coverageRunner.GenerateCoverageAsync(moduleRoot, cancellationToken).ConfigureAwait(false);
+            }
             string? coberturaXml = FindCoberturaXml(moduleRoot);
             if (coberturaXml is null)
             {
-                await _err.WriteLineAsync("Warning: Cobertura XML not found at "
-                    + Path.Combine(moduleRoot, "TestResults") + ". Coverage will be N/A.").ConfigureAwait(false);
+                await _err.WriteLineAsync(ToolConstants.CoverageMissingWarning(moduleRoot)).ConfigureAwait(false);
             }
             metrics.AddRange(CrapAnalyzer.Analyze(moduleRoot, entry.Value, coberturaXml));
         }
@@ -79,14 +128,14 @@ internal sealed class CliApplication
 
     private static string? FindCoberturaXml(string moduleRoot)
     {
-        string testResultsDir = Path.Combine(moduleRoot, "TestResults");
+        string testResultsDir = Path.Combine(moduleRoot, ToolConstants.TestResultsDirName);
         if (!Directory.Exists(testResultsDir))
         {
             return null;
         }
         string? min = null;
         foreach (string candidate in Directory.EnumerateFiles(
-            testResultsDir, "coverage.cobertura.xml", NewCoberturaEnumeration()))
+            testResultsDir, ToolConstants.CoberturaFileName, FileSystemHelpers.SharedEnumeration()))
         {
             if (min is null || string.Compare(candidate, min, StringComparison.Ordinal) < 0)
             {
@@ -96,16 +145,9 @@ internal sealed class CliApplication
         return min;
     }
 
-    private static int CompareByCrapDesc(MethodMetrics a, MethodMetrics b) =>
-        (a.CrapScore, b.CrapScore) switch
-        {
-            (null, null) => 0,
-            (null, _) => 1,
-            (_, null) => -1,
-            (var x, var y) => y.Value.CompareTo(x.Value),
-        };
+    internal static bool ThresholdExceeded(double max) => ThresholdExceeded(max, DefaultThreshold);
 
-    internal static bool ThresholdExceeded(double max) => max.CompareTo(8.0) > 0;
+    internal static bool ThresholdExceeded(double max, double threshold) => max.CompareTo(threshold) > 0;
 
     private ParseOutcome ParseArguments(string[] args)
     {
@@ -127,22 +169,22 @@ internal sealed class CliApplication
         }
     }
 
-    private async Task<IReadOnlyList<string>> FilesForModeAsync(
-        CliArguments parsed, CancellationToken cancellationToken) => parsed.Mode switch
+    private static async Task<IReadOnlyList<string>> FilesForModeAsync(
+        CliArguments parsed, string effectiveRoot, CancellationToken cancellationToken) => parsed.Mode switch
     {
-        CliMode.AllSrc => SourceFileFinder.FindAllCsFilesUnderSrc(_projectRoot),
+        CliMode.AllSrc => SourceFileFinder.FindAllCsFilesUnderSrc(effectiveRoot),
         CliMode.ChangedSrc => await ChangedFileDetector
-            .ChangedCsFilesUnderSrcAsync(_projectRoot, cancellationToken).ConfigureAwait(false),
-        CliMode.ExplicitFiles => ExplicitFiles(parsed.FileArgs),
+            .ChangedCsFilesUnderSrcAsync(effectiveRoot, cancellationToken).ConfigureAwait(false),
+        CliMode.ExplicitFiles => ExplicitFiles(parsed.FileArgs, effectiveRoot),
         _ => [],
     };
 
-    private string[] ExplicitFiles(IReadOnlyList<string> args)
+    private static string[] ExplicitFiles(IReadOnlyList<string> args, string effectiveRoot)
     {
         var files = new HashSet<string>(StringComparer.Ordinal);
         foreach (string arg in args)
         {
-            string path = Path.GetFullPath(Path.Combine(_projectRoot, arg));
+            string path = ToolConstants.CombineRooted(effectiveRoot, arg);
             if (Directory.Exists(path))
             {
                 foreach (string file in SourceFileFinder.FindAllCsFilesUnderSrc(path))
@@ -166,15 +208,12 @@ internal sealed class CliApplication
         return ModuleRootForNormalized(normalized, normalized + Path.DirectorySeparatorChar, file);
     }
 
-    private string ModuleRootForCurrent(string file) =>
-        ModuleRootForNormalized(_projectRoot, _projectPrefix, file);
-
     private static string ModuleRootForNormalized(string normalizedRoot, string rootPrefix, string file)
     {
         string? current = Directory.Exists(file)
             ? Path.GetFullPath(file)
             : Path.GetDirectoryName(Path.GetFullPath(file));
-        while (current is not null && IsWithinOrEqual(current, normalizedRoot, rootPrefix))
+        while (current is not null && current.IsUnderDirectory(normalizedRoot, rootPrefix))
         {
             if (HasCsproj(current))
             {
@@ -197,12 +236,13 @@ internal sealed class CliApplication
         }
     }
 
-    private Dictionary<string, List<string>> GroupByModuleRoot(IReadOnlyList<string> filesToAnalyze)
+    private static Dictionary<string, List<string>> GroupByModuleRoot(
+        IReadOnlyList<string> filesToAnalyze, string effectiveRoot, string effectivePrefix)
     {
         var grouped = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (string file in filesToAnalyze)
         {
-            string moduleRoot = ModuleRootForCurrent(file);
+            string moduleRoot = ModuleRootForNormalized(effectiveRoot, effectivePrefix, file);
             if (!grouped.TryGetValue(moduleRoot, out List<string>? list))
             {
                 list = [];
@@ -212,10 +252,6 @@ internal sealed class CliApplication
         }
         return grouped;
     }
-
-    private static bool IsWithinOrEqual(string candidate, string root, string rootPrefix) =>
-        candidate.Equals(root, StringComparison.Ordinal) ||
-        candidate.StartsWith(rootPrefix, StringComparison.Ordinal);
 
     private sealed class ParseOutcome
     {

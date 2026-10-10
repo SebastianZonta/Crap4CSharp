@@ -1,12 +1,7 @@
-using System.Text.RegularExpressions;
-
 namespace Crap4CSharp;
 
-internal static partial class CrapAnalyzer
+internal static class CrapAnalyzer
 {
-    [System.Text.RegularExpressions.GeneratedRegex(@"(?m)^\s*namespace\s+([A-Za-z_][\w.]*)\s*[;{]", System.Text.RegularExpressions.RegexOptions.Compiled)]
-    private static partial System.Text.RegularExpressions.Regex NamespacePattern();
-
     public static IReadOnlyList<MethodMetrics> Analyze(
         string projectRoot, IReadOnlyList<string> files, string? coberturaXml)
     {
@@ -25,43 +20,86 @@ internal static partial class CrapAnalyzer
             foreach (MethodDescriptor method in CSharpMethodParser.Parse(source))
             {
                 double? coverage = LookupIndexed(coverageIndex, className, method.Name, method.StartLine);
-                // CRAP formula inlined in the hot loop (same math as
-                // CrapScore.Calculate, which stays as the tested seam).
-                double? crap = null;
-                if (coverage is not null)
-                {
-                    double cc = method.Complexity;
-                    double uncovered = 1.0 - (coverage.Value / 100.0);
-                    crap = (cc * cc * uncovered * uncovered * uncovered) + cc;
-                }
+                double? crap = CrapScore.Calculate(method.Complexity, coverage);
                 metrics.Add(new MethodMetrics(method.Name, className, method.Complexity, coverage, crap));
             }
         }
 
-        metrics.Sort((a, b) =>
-            (a.CrapScore, b.CrapScore) switch
-            {
-                (null, null) => 0,
-                (null, _) => 1,
-                (_, null) => -1,
-                (var x, var y) => y.Value.CompareTo(x.Value),
-            });
+        metrics.Sort(CrapScore.CompareByCrapDesc);
         return metrics.AsReadOnly();
     }
 
     public static string ClassNameFromSource(string file, string source)
     {
-        string simpleName = Path.GetFileName(file);
-        if (simpleName.EndsWith(".cs", StringComparison.Ordinal))
+        ReadOnlySpan<char> simpleName = Path.GetFileName(file);
+        ReadOnlySpan<char> ext = ToolConstants.CSharpExtension;
+        if (simpleName.EndsWith(ext, StringComparison.Ordinal))
         {
-            simpleName = simpleName[..^".cs".Length];
+            simpleName = simpleName[..^ext.Length];
         }
-        Match match = NamespacePattern().Match(source);
-        if (!match.Success)
+        ReadOnlySpan<char> ns = ScanNamespace(source);
+        if (ns.IsEmpty)
         {
-            return simpleName;
+            return new string(simpleName);
         }
-        return match.Groups[1].Value + "." + simpleName;
+        return string.Create(null, $"{ns}.{simpleName}");
+    }
+
+    // Forward span scan replacing the old whole-source namespace regex
+    // `(?m)^\s*namespace\s+([A-Za-z_][\w.]*)\s*[;{]`: per line, skip leading
+    // whitespace, match the `namespace` keyword, then the dotted identifier.
+    private static ReadOnlySpan<char> ScanNamespace(ReadOnlySpan<char> source)
+    {
+        int i = 0;
+        while (i < source.Length)
+        {
+            int lineEnd = source.Slice(i).IndexOf('\n');
+            ReadOnlySpan<char> line = lineEnd < 0 ? source.Slice(i) : source.Slice(i, lineEnd);
+            if (line.Length > 0 && line[line.Length - 1] == '\r')
+            {
+                line = line.Slice(0, line.Length - 1);
+            }
+            int pos = 0;
+            while (pos < line.Length && char.IsWhiteSpace(line[pos]))
+            {
+                pos++;
+            }
+            ReadOnlySpan<char> keyword = "namespace";
+            if (line.Length - pos > keyword.Length
+                && line.Slice(pos, keyword.Length).SequenceEqual(keyword)
+                && char.IsWhiteSpace(line[pos + keyword.Length]))
+            {
+                pos += keyword.Length;
+                while (pos < line.Length && char.IsWhiteSpace(line[pos]))
+                {
+                    pos++;
+                }
+                int nameStart = pos;
+                while (pos < line.Length && (char.IsLetterOrDigit(line[pos]) || line[pos] == '_' || line[pos] == '.'))
+                {
+                    pos++;
+                }
+                if (pos > nameStart && line[nameStart] != '.' && line[pos - 1] != '.'
+                    && (line[nameStart] == '_' || char.IsLetter(line[nameStart])))
+                {
+                    int end = pos;
+                    while (end < line.Length && char.IsWhiteSpace(line[end]))
+                    {
+                        end++;
+                    }
+                    if (end < line.Length && (line[end] == ';' || line[end] == '{'))
+                    {
+                        return line.Slice(nameStart, pos - nameStart);
+                    }
+                }
+            }
+            if (lineEnd < 0)
+            {
+                break;
+            }
+            i += lineEnd + 1;
+        }
+        return ReadOnlySpan<char>.Empty;
     }
 
     public static double? LookupCoverage(
@@ -82,7 +120,7 @@ internal static partial class CrapAnalyzer
         IDictionary<string, CoverageData> coverageMap,
         string className, string methodName, int line)
     {
-        string key = className + "#" + methodName + ":" + line;
+        string key = className.CoverageKey(methodName, line);
         if (!coverageMap.TryGetValue(key, out CoverageData exact))
         {
             return null;
@@ -94,7 +132,7 @@ internal static partial class CrapAnalyzer
         IDictionary<string, CoverageData> coverageMap,
         string className, string methodName, int line)
     {
-        string prefix = className + "#" + methodName + ":";
+        string prefix = className.MethodPrefix(methodName);
         CoverageData? nearest = null;
         int nearestDistance = int.MaxValue;
         foreach (var entry in coverageMap)
@@ -113,10 +151,11 @@ internal static partial class CrapAnalyzer
         return nearest;
     }
 
-    public static int ParseTrailingLine(string key)
+    public static int ParseTrailingLine(this string key) => ParseTrailingLine(key.AsSpan());
+
+    public static int ParseTrailingLine(this ReadOnlySpan<char> span)
     {
-        ReadOnlySpan<char> span = key.AsSpan();
-        int separator = span.LastIndexOf(':');
+        int separator = span.LastIndexOf(ToolConstants.CoverageKeyLineSeparator);
         if (separator < 0)
         {
             return int.MaxValue;
@@ -140,13 +179,13 @@ internal static partial class CrapAnalyzer
         var index = new Dictionary<string, List<(int Line, CoverageData Data)>>(StringComparer.Ordinal);
         foreach (var entry in coverageMap)
         {
-            string key = entry.Key;
-            int separator = key.LastIndexOf(':');
+            ReadOnlySpan<char> key = entry.Key;
+            int separator = key.LastIndexOf(ToolConstants.CoverageKeyLineSeparator);
             if (separator < 0)
             {
                 continue;
             }
-            string methodKey = key.Substring(0, separator);
+            string methodKey = new(key[..separator]);
             int line = ParseTrailingLine(key);
             if (!index.TryGetValue(methodKey, out List<(int Line, CoverageData Data)>? entries))
             {
@@ -162,7 +201,7 @@ internal static partial class CrapAnalyzer
         Dictionary<string, List<(int Line, CoverageData Data)>> index,
         string className, string methodName, int line)
     {
-        string methodKey = className + "#" + methodName;
+        string methodKey = className.MethodKey(methodName);
         if (!index.TryGetValue(methodKey, out List<(int Line, CoverageData Data)>? entries))
         {
             return null;

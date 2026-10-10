@@ -166,6 +166,30 @@ public sealed class MainTest : IDisposable
         Assert.Contains("Usage:", output.ToString(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void VersionWritesVersionToStdout()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = Program.Run(["--version"], _tempDir, output, err, NoopCoverage);
+
+        Assert.Equal(0, exit);
+        Assert.Contains("crap4csharp", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnknownOptionExitsOne()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        int exit = Program.Run(["--bogus"], _tempDir, output, err, NoopCoverage);
+
+        Assert.Equal(1, exit);
+        Assert.Contains("Unknown option", err.ToString(), StringComparison.Ordinal);
+    }
+
     private static int RunTool(string arguments, string workingDirectory)
     {
         string dll = FindToolDll();
