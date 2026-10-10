@@ -28,6 +28,13 @@ Global (public feed):
 dotnet tool install -g crap4csharp
 ```
 
+While only prerelease versions exist, add `--prerelease` (or pin
+`--version x.y.z`):
+
+```bash
+dotnet tool install -g crap4csharp --prerelease
+```
+
 Pinned per repo (local tool manifest):
 
 ```bash
@@ -70,12 +77,26 @@ crap4csharp --top 20 --min-cc 3 --no-coverage
 - `--min-cc <n>` — hide methods with complexity below `n` (default `1`).
 - `--no-coverage` — skip the `dotnet test` coverage run; reuse existing
   `TestResults/**/coverage.cobertura.xml` (missing → `N/A`).
-- `--help, -h` — print usage; `--version` — print version.
+- `--help, -h` (also `-?`) — print usage; `--version` — print version.
 - `--` — treat all following args as paths (e.g. files starting with `-`).
 - Both `--flag value` and `--flag=value` forms are accepted.
 - Unknown `--*` options fail with exit `1`.
 
 Empty selection prints `No C# files to analyze.` and exits successfully.
+
+## Sample output
+
+```text
+CRAP Report
+===========
+Method                         Class                                 CC    Cov%     CRAP
+----------------------------------------------------------------------------------------
+Monster                        Crap4Subject.Calculator               15   80.0%     16.8
+Grade                          Crap4Subject.Calculator                7   86.7%      7.1
+CRAP threshold exceeded: 16.8 > 8.0
+```
+
+Exit code `2`: the worst score (`16.8`) exceeds the default threshold (`8.0`).
 
 ## Exit codes
 
