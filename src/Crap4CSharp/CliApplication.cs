@@ -37,6 +37,20 @@ internal sealed class CliApplication
         }
 
         string effectiveRoot = ResolveRoot(parsed.ProjectPath);
+        try
+        {
+            return await ExecuteOnRootAsync(parsed, effectiveRoot, cancellationToken).ConfigureAwait(false);
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            await _err.WriteLineAsync(ex.Message).ConfigureAwait(false);
+            return 1;
+        }
+    }
+
+    private async Task<int> ExecuteOnRootAsync(
+        CliArguments parsed, string effectiveRoot, CancellationToken cancellationToken)
+    {
         string effectivePrefix = effectiveRoot + Path.DirectorySeparatorChar;
         IReadOnlyList<string> filesToAnalyze = await FilesForModeAsync(parsed, effectiveRoot, cancellationToken).ConfigureAwait(false);
         if (filesToAnalyze.Count == 0)
