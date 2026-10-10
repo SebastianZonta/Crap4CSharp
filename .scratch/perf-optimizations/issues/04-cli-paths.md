@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (higiene de build).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Sorts estáticos con nulls-last explícito; lookup de XML por mínimo en vez de ordenar; normalización de root y prefijos hecha una vez por corrida; argv en un solo pase
 - [x] Enumeración resiliente (ignora inaccesibles, case-insensitive) y texto de ayuda como constante

@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (higiene de build).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Índice por clase+método construido una vez por corrida; cada método solo busca dentro de sus entradas
 - [x] Regex de namespace generada en compile-time; parseo de línea e ints sin allocations ni excepciones

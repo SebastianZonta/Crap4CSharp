@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Build con warnings-as-errors, estilo aplicado en build y modo de análisis completo, con versión de lenguaje fijada
 - [x] Atributo de visibilidad de internos movido a su lugar canónico (sin cambio de acceso efectivo)

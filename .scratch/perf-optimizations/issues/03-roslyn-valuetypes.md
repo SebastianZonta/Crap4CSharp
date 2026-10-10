@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 (índice cobertura + XML).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Un solo walker por archivo, chequeo de ancestros manual con salida temprana, walker de complejidad reusado, tabla de líneas cacheada, trivia de doc-comments desactivada
 - [x] Entradas de cobertura y descriptores de método como records struct readonly (igualdad usada por tests preservada); scoring con costo de llamada eliminado

@@ -4,7 +4,7 @@
 
 **Blocked by:** 04 (CLI paths, comparte área del detector de cambios).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Ejecución async con token de cancelación desde el seam de entrada; kill del árbol de proceso ante cancelación; validación fail-fast del directorio de trabajo
 - [x] Detección de cambios con lectura async anti-deadlock, parseo por spans sin arrays intermedios y argumentos estructurados
