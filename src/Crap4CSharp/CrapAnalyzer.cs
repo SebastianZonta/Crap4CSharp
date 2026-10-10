@@ -25,7 +25,15 @@ internal static partial class CrapAnalyzer
             foreach (MethodDescriptor method in CSharpMethodParser.Parse(source))
             {
                 double? coverage = LookupIndexed(coverageIndex, className, method.Name, method.StartLine);
-                double? crap = CrapScore.Calculate(method.Complexity, coverage);
+                // CRAP formula inlined in the hot loop (same math as
+                // CrapScore.Calculate, which stays as the tested seam).
+                double? crap = null;
+                if (coverage is not null)
+                {
+                    double cc = method.Complexity;
+                    double uncovered = 1.0 - (coverage.Value / 100.0);
+                    crap = (cc * cc * uncovered * uncovered * uncovered) + cc;
+                }
                 metrics.Add(new MethodMetrics(method.Name, className, method.Complexity, coverage, crap));
             }
         }
@@ -75,7 +83,7 @@ internal static partial class CrapAnalyzer
         string className, string methodName, int line)
     {
         string key = className + "#" + methodName + ":" + line;
-        if (!coverageMap.TryGetValue(key, out CoverageData? exact))
+        if (!coverageMap.TryGetValue(key, out CoverageData exact))
         {
             return null;
         }
