@@ -34,16 +34,22 @@ internal static class ChangedFileDetector
             }
         }
         files.Sort(StringComparer.Ordinal);
-        return files.AsReadOnly();
+        return files.ToArray();
     }
 
     public static IReadOnlyList<string> ChangedCsFilesUnderSrc(string projectRoot)
     {
         string src = Path.GetFullPath(Path.Combine(projectRoot, "src"));
-        return ChangedCsFiles(projectRoot)
-            .Where(path => IsUnderDirectory(Path.GetFullPath(path), src))
-            .ToList()
-            .AsReadOnly();
+        string prefix = src + Path.DirectorySeparatorChar;
+        List<string> files = [];
+        foreach (string path in ChangedCsFiles(projectRoot))
+        {
+            if (IsUnderDirectory(path, src, prefix))
+            {
+                files.Add(path);
+            }
+        }
+        return files.ToArray();
     }
 
     private static string? ParseStatusLine(string root, string line)
@@ -86,12 +92,12 @@ internal static class ChangedFileDetector
 
     private static bool IsCsPath(string path)
     {
-        return path.EndsWith(".cs", StringComparison.Ordinal);
+        return path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsUnderDirectory(string path, string directory)
+    private static bool IsUnderDirectory(string path, string directory, string prefix)
     {
         return path.Equals(directory, StringComparison.Ordinal)
-            || path.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+            || path.StartsWith(prefix, StringComparison.Ordinal);
     }
 }

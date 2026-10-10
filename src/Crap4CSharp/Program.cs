@@ -18,7 +18,9 @@ internal static class Program
         string[] args, string projectRoot, TextWriter output, TextWriter err, CoverageRunner coverageRunner) =>
         new CliApplication(projectRoot, output, err, coverageRunner).Execute(args);
 
-    internal static string Usage() =>
+    internal static string Usage() => UsageText;
+
+    private const string UsageText =
         """
         Usage:
           crap4csharp            Analyze all C# files under src/
