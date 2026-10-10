@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Xml;
 
 namespace Crap4CSharp;
@@ -11,39 +12,45 @@ namespace Crap4CSharp;
 // it builds standalone; ticket 10/integration will unify the value type.
 internal static class CoberturaCoverageParser
 {
+    private static readonly IReadOnlyDictionary<string, (int Missed, int Covered)> EmptyMap =
+        new Dictionary<string, (int Missed, int Covered)>();
+
     public static IReadOnlyDictionary<string, (int Missed, int Covered)> Parse(string? coberturaXmlPath)
     {
         if (string.IsNullOrEmpty(coberturaXmlPath) || !File.Exists(coberturaXmlPath))
         {
-            return new Dictionary<string, (int Missed, int Covered)>();
+            return EmptyMap;
         }
 
         try
         {
             var settings = NewSecureReaderSettings();
             using var reader = XmlReader.Create(coberturaXmlPath, settings);
-            var document = new XmlDocument { XmlResolver = null };
-            document.Load(reader);
-
             var coverage = new Dictionary<string, (int Missed, int Covered)>(StringComparer.Ordinal);
-            var methods = document.GetElementsByTagName("method");
-            foreach (XmlNode methodNode in methods)
+            string currentClass = string.Empty;
+            while (reader.Read())
             {
-                if (methodNode is not XmlElement method)
+                if (reader.NodeType != XmlNodeType.Element)
                 {
                     continue;
                 }
-                string? key;
-                (int Missed, int Covered) counts;
-                if (TryReadMethod(method, out key, out counts) && key is not null)
+                if (reader.Name == "class")
                 {
-                    coverage[key] = counts;
+                    currentClass = NormalizeClassName(reader.GetAttribute("name"));
+                }
+                else if (reader.Name == "method")
+                {
+                    ReadMethodCoverage(reader, currentClass, coverage);
                 }
             }
 
+            if (coverage.Count == 0)
+            {
+                return EmptyMap;
+            }
             return coverage;
         }
-        catch (Exception ex) when (ex is not InvalidOperationException)
+        catch (Exception ex) when (ex is XmlException || ex is IOException)
         {
             throw new InvalidOperationException("Unable to parse Cobertura XML: " + coberturaXmlPath, ex);
         }
@@ -55,23 +62,18 @@ internal static class CoberturaCoverageParser
         XmlResolver = null,
     };
 
-    private static bool TryReadMethod(XmlElement method, out string? key, out (int Missed, int Covered) counts)
+    private static void ReadMethodCoverage(
+        XmlReader reader, string currentClass, Dictionary<string, (int Missed, int Covered)> coverage)
     {
-        key = null;
-        counts = (0, 0);
-
-        string methodName = method.GetAttribute("name");
-        if (string.IsNullOrEmpty(methodName))
+        string? methodName = reader.GetAttribute("name");
+        if (string.IsNullOrEmpty(methodName) || string.IsNullOrEmpty(currentClass))
         {
-            return false;
+            return;
         }
-
-        string className = FindClassName(method);
-        if (string.IsNullOrEmpty(className))
+        if (reader.IsEmptyElement)
         {
-            return false;
+            return;
         }
-        className = className.Replace('/', '.').Replace('\\', '.');
 
         int missed = 0;
         int covered = 0;
@@ -79,14 +81,18 @@ internal static class CoberturaCoverageParser
         bool hasLine = false;
 
         // <method><lines><line number=".." hits=".."/>...</lines></method>
-        foreach (XmlNode child in method.GetElementsByTagName("line"))
+        while (reader.Read())
         {
-            if (child is not XmlElement line || !IsDescendantOf(line, method))
+            if (reader.NodeType == XmlNodeType.EndElement && reader.Name == "method")
+            {
+                break;
+            }
+            if (reader.NodeType != XmlNodeType.Element || reader.Name != "line")
             {
                 continue;
             }
             hasLine = true;
-            int hits = ParseInt(line.GetAttribute("hits"));
+            int hits = ParseInt(reader.GetAttribute("hits"));
             if (hits > 0)
             {
                 covered++;
@@ -95,7 +101,7 @@ internal static class CoberturaCoverageParser
             {
                 missed++;
             }
-            int number = ParseInt(line.GetAttribute("number"));
+            int number = ParseInt(reader.GetAttribute("number"));
             if (number < minLine)
             {
                 minLine = number;
@@ -104,47 +110,31 @@ internal static class CoberturaCoverageParser
 
         if (!hasLine)
         {
-            return false;
+            return;
         }
 
-        key = className + "#" + methodName + ":" + minLine;
-        counts = (missed, covered);
-        return true;
+        coverage[currentClass + "#" + methodName + ":" + minLine] = (missed, covered);
     }
 
-    private static string FindClassName(XmlNode node)
+    private static string NormalizeClassName(string? className)
     {
-        for (XmlNode? current = node.ParentNode; current is not null; current = current.ParentNode)
+        if (string.IsNullOrEmpty(className))
         {
-            if (current is XmlElement element && element.Name == "class")
-            {
-                return element.GetAttribute("name");
-            }
+            return string.Empty;
         }
-        return string.Empty;
+        return className.Replace('/', '.').Replace('\\', '.');
     }
 
-    private static bool IsDescendantOf(XmlElement candidate, XmlElement ancestor)
+    private static int ParseInt(string? value)
     {
-        for (XmlNode? current = candidate.ParentNode; current is not null; current = current.ParentNode)
-        {
-            if (ReferenceEquals(current, ancestor))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static int ParseInt(string value)
-    {
-        try
-        {
-            return int.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
-        }
-        catch (Exception ex) when (ex is FormatException || ex is OverflowException || ex is ArgumentException)
+        if (string.IsNullOrEmpty(value))
         {
             return 0;
         }
+        if (int.TryParse(value.AsSpan(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int result))
+        {
+            return result;
+        }
+        return 0;
     }
 }

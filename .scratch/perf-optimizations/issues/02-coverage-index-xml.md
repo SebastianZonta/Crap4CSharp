@@ -6,7 +6,11 @@
 
 **Status:** ready-for-agent
 
-- [ ] Índice por clase+método construido una vez por corrida; cada método solo busca dentro de sus entradas
-- [ ] Regex de namespace generada en compile-time; parseo de línea e ints sin allocations ni excepciones
-- [ ] Parser Cobertura en lector forward-only con estado de clase actual; errores limitados a categorías XML/IO; entrada vacía retorna mapa compartido vacío
-- [ ] Tests de analizador y parser verdes con scores idénticos; verificación manual con un Cobertura grande si hay uno a mano
+- [x] Índice por clase+método construido una vez por corrida; cada método solo busca dentro de sus entradas
+- [x] Regex de namespace generada en compile-time; parseo de línea e ints sin allocations ni excepciones
+- [x] Parser Cobertura en lector forward-only con estado de clase actual; errores limitados a categorías XML/IO; entrada vacía retorna mapa compartido vacío
+- [x] Tests de analizador y parser verdes con scores idénticos; verificación manual con un Cobertura grande si hay uno a mano
+
+## Completion
+
+Done 2026-10-10 (build `0 warnings / 0 errors`, suite `62/62` incl. targeted analyzer+parser `16/16`; scores, malformed-fallback, empty-input y Doctype-reject pinned por tests existentes). Notes: `LookupCoverage`/`ExactCoverage`/`NearestCoverage` públicas se conservan para compat con tests; `Analyze` usa la vía indexada (`BuildMethodIndex`+`LookupIndexed`). Sin Cobertura grande a mano: verificación manual limitada a smoke run sobre `src/` (reporte N/A correcto, namespaces resueltos).

@@ -2,15 +2,16 @@ using System.Text.RegularExpressions;
 
 namespace Crap4CSharp;
 
-internal static class CrapAnalyzer
+internal static partial class CrapAnalyzer
 {
-    private static readonly Regex NamespacePattern =
-        new(@"(?m)^\s*namespace\s+([A-Za-z_][\w.]*)\s*[;{]", RegexOptions.Compiled);
+    [System.Text.RegularExpressions.GeneratedRegex(@"(?m)^\s*namespace\s+([A-Za-z_][\w.]*)\s*[;{]", System.Text.RegularExpressions.RegexOptions.Compiled)]
+    private static partial System.Text.RegularExpressions.Regex NamespacePattern();
 
     public static IReadOnlyList<MethodMetrics> Analyze(
         string projectRoot, IReadOnlyList<string> files, string? coberturaXml)
     {
         var coverageMap = ToCoverageData(CoberturaCoverageParser.Parse(coberturaXml));
+        var coverageIndex = BuildMethodIndex(coverageMap);
         List<MethodMetrics> metrics = [];
 
         foreach (string file in files)
@@ -23,7 +24,7 @@ internal static class CrapAnalyzer
             string className = ClassNameFromSource(file, source);
             foreach (MethodDescriptor method in CSharpMethodParser.Parse(source))
             {
-                double? coverage = LookupCoverage(coverageMap, className, method.Name, method.StartLine);
+                double? coverage = LookupIndexed(coverageIndex, className, method.Name, method.StartLine);
                 double? crap = CrapScore.Calculate(method.Complexity, coverage);
                 metrics.Add(new MethodMetrics(method.Name, className, method.Complexity, coverage, crap));
             }
@@ -47,7 +48,7 @@ internal static class CrapAnalyzer
         {
             simpleName = simpleName[..^".cs".Length];
         }
-        Match match = NamespacePattern.Match(source);
+        Match match = NamespacePattern().Match(source);
         if (!match.Success)
         {
             return simpleName;
@@ -106,22 +107,77 @@ internal static class CrapAnalyzer
 
     public static int ParseTrailingLine(string key)
     {
-        int separator = key.LastIndexOf(':');
+        ReadOnlySpan<char> span = key.AsSpan();
+        int separator = span.LastIndexOf(':');
         if (separator < 0)
         {
             return int.MaxValue;
         }
-        string lineText = key[(separator + 1)..];
-        if (lineText.Length == 0)
+        ReadOnlySpan<char> linePart = span[(separator + 1)..];
+        if (linePart.Length == 0)
         {
             return int.MaxValue;
         }
-        if (int.TryParse(lineText, System.Globalization.NumberStyles.Integer,
+        if (int.TryParse(linePart, System.Globalization.NumberStyles.Integer,
                 System.Globalization.CultureInfo.InvariantCulture, out int line))
         {
             return line;
         }
         return int.MaxValue;
+    }
+
+    private static Dictionary<string, List<(int Line, CoverageData Data)>> BuildMethodIndex(
+        IDictionary<string, CoverageData> coverageMap)
+    {
+        var index = new Dictionary<string, List<(int Line, CoverageData Data)>>(StringComparer.Ordinal);
+        foreach (var entry in coverageMap)
+        {
+            string key = entry.Key;
+            int separator = key.LastIndexOf(':');
+            if (separator < 0)
+            {
+                continue;
+            }
+            string methodKey = key.Substring(0, separator);
+            int line = ParseTrailingLine(key);
+            if (!index.TryGetValue(methodKey, out List<(int Line, CoverageData Data)>? entries))
+            {
+                entries = [];
+                index[methodKey] = entries;
+            }
+            entries.Add((line, entry.Value));
+        }
+        return index;
+    }
+
+    private static double? LookupIndexed(
+        Dictionary<string, List<(int Line, CoverageData Data)>> index,
+        string className, string methodName, int line)
+    {
+        string methodKey = className + "#" + methodName;
+        if (!index.TryGetValue(methodKey, out List<(int Line, CoverageData Data)>? entries))
+        {
+            return null;
+        }
+        foreach (var entry in entries)
+        {
+            if (entry.Line == line)
+            {
+                return entry.Data.CoveragePercent();
+            }
+        }
+        CoverageData? nearest = null;
+        int nearestDistance = int.MaxValue;
+        foreach (var entry in entries)
+        {
+            int distance = Math.Abs(entry.Line - line);
+            if (distance < nearestDistance)
+            {
+                nearestDistance = distance;
+                nearest = entry.Data;
+            }
+        }
+        return nearest?.CoveragePercent();
     }
 
     private static Dictionary<string, CoverageData> ToCoverageData(
