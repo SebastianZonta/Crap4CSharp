@@ -1,6 +1,6 @@
 namespace Crap4CSharp;
 
-public sealed record MethodMetrics(
+internal sealed record MethodMetrics(
     string MethodName,
     string ClassName,
     int Complexity,

@@ -1,6 +1,6 @@
 namespace Crap4CSharp;
 
-public static class CrapScore
+internal static class CrapScore
 {
     public static double? Calculate(int complexity, double? coveragePercent)
     {

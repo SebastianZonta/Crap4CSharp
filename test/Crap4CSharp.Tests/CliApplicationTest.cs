@@ -23,27 +23,28 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void ParseErrorsReturnUsageAndExitOne()
     {
-        var output = new StringWriter();
-        var err = new StringWriter();
+        using var output = new StringWriter();
+        using var err = new StringWriter();
 
         int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
             .Execute(["--changed", Path.Combine("src", "Sample.cs")]);
 
         Assert.Equal(1, exit);
-        Assert.Contains("Usage:", output.ToString());
-        Assert.Contains("--changed cannot be combined with file arguments", err.ToString());
+        Assert.Contains("Usage:", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--changed cannot be combined with file arguments", err.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
     public void ReturnsZeroWhenNoFilesAreFound()
     {
-        var output = new StringWriter();
+        using var output = new StringWriter();
+        using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, new StringWriter(), NoopCoverage)
+        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
             .Execute([]);
 
         Assert.Equal(0, exit);
-        Assert.Contains("No C# files to analyze.", output.ToString());
+        Assert.Contains("No C# files to analyze.", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -62,8 +63,8 @@ public sealed class CliApplicationTest : IDisposable
             }
             """);
         string resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
-        var output = new StringWriter();
-        var err = new StringWriter();
+        using var output = new StringWriter();
+        using var err = new StringWriter();
         var coverageRunner = new CoverageRunner(new FakeExecutor((_, _) =>
         {
             Directory.CreateDirectory(resultsDir);
@@ -94,8 +95,8 @@ public sealed class CliApplicationTest : IDisposable
             .Execute([Path.Combine("src", "Demo", "Sample.cs")]);
 
         Assert.Equal(0, exit);
-        Assert.Contains("Sample", output.ToString());
-        Assert.DoesNotContain("Warning: Cobertura XML not found", err.ToString());
+        Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Warning: Cobertura XML not found", err.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -115,8 +116,8 @@ public sealed class CliApplicationTest : IDisposable
                 }
             }
             """);
-        var output = new StringWriter();
-        var err = new StringWriter();
+        using var output = new StringWriter();
+        using var err = new StringWriter();
         var directories = new List<string>();
         string resultsDir = Path.Combine(moduleRoot, "TestResults", "run1");
         var coverageRunner = new CoverageRunner(new FakeExecutor((_, directory) =>
@@ -151,8 +152,8 @@ public sealed class CliApplicationTest : IDisposable
 
         Assert.Equal(0, exit);
         Assert.Equal(new[] { moduleRoot }, directories);
-        Assert.Contains("Mutate4CSharp.Sample", output.ToString());
-        Assert.DoesNotContain("Warning: Cobertura XML not found", err.ToString());
+        Assert.Contains("Mutate4CSharp.Sample", output.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Warning: Cobertura XML not found", err.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -181,8 +182,8 @@ public sealed class CliApplicationTest : IDisposable
             }
             """);
         string resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
-        var output = new StringWriter();
-        var err = new StringWriter();
+        using var output = new StringWriter();
+        using var err = new StringWriter();
         var coverageRunner = new CoverageRunner(new FakeExecutor((_, _) =>
         {
             Directory.CreateDirectory(resultsDir);
@@ -213,9 +214,9 @@ public sealed class CliApplicationTest : IDisposable
             .Execute([Path.Combine("src", "Demo", "Sample.cs")]);
 
         Assert.Equal(2, exit);
-        Assert.Contains("Risky", output.ToString());
-        Assert.Contains("CRAP threshold exceeded:", err.ToString());
-        Assert.Contains("> 8.0", err.ToString());
+        Assert.Contains("Risky", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("CRAP threshold exceeded:", err.ToString(), StringComparison.Ordinal);
+        Assert.Contains("> 8.0", err.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

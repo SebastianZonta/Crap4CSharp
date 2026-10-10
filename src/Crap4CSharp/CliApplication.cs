@@ -55,7 +55,7 @@ internal sealed class CliApplication
 
     private List<MethodMetrics> AnalyzeByModule(IReadOnlyList<string> filesToAnalyze)
     {
-        var metrics = new List<MethodMetrics>();
+        List<MethodMetrics> metrics = [];
         foreach (var entry in GroupByModuleRoot(filesToAnalyze))
         {
             string moduleRoot = entry.Key;
@@ -111,10 +111,10 @@ internal sealed class CliApplication
         CliMode.AllSrc => SourceFileFinder.FindAllCsFilesUnderSrc(_projectRoot),
         CliMode.ChangedSrc => ChangedFileDetector.ChangedCsFilesUnderSrc(_projectRoot),
         CliMode.ExplicitFiles => ExplicitFiles(parsed.FileArgs),
-        _ => Array.Empty<string>(),
+        _ => [],
     };
 
-    private IReadOnlyList<string> ExplicitFiles(IReadOnlyList<string> args)
+    private List<string> ExplicitFiles(IReadOnlyList<string> args)
     {
         var files = new HashSet<string>(StringComparer.Ordinal);
         foreach (string arg in args)
@@ -132,7 +132,7 @@ internal sealed class CliApplication
                 files.Add(path);
             }
         }
-        return files.OrderBy(p => p, StringComparer.Ordinal).ToList().AsReadOnly();
+        return files.OrderBy(p => p, StringComparer.Ordinal).ToList();
     }
 
     internal static string ModuleRootFor(string workspaceRoot, string file)
@@ -160,7 +160,7 @@ internal sealed class CliApplication
             string moduleRoot = ModuleRootFor(_projectRoot, file);
             if (!grouped.TryGetValue(moduleRoot, out List<string>? list))
             {
-                list = new List<string>();
+                list = [];
                 grouped[moduleRoot] = list;
             }
             list.Add(file);

@@ -1,17 +1,17 @@
 namespace Crap4CSharp;
 
-public static class CliArgumentsParser
+internal static class CliArgumentsParser
 {
     public static CliArguments Parse(string[] args)
     {
-        if (args.Length == 0)
+        if (args is [])
         {
-            return new CliArguments(CliMode.AllSrc, Array.Empty<string>());
+            return new CliArguments(CliMode.AllSrc, []);
         }
 
         if (ContainsFlag(args, "--help"))
         {
-            return new CliArguments(CliMode.Help, Array.Empty<string>());
+            return new CliArguments(CliMode.Help, []);
         }
 
         bool changed = ContainsFlag(args, "--changed");
@@ -19,7 +19,7 @@ public static class CliArgumentsParser
         EnsureChangedIsNotCombined(changed, values);
         if (changed)
         {
-            return new CliArguments(CliMode.ChangedSrc, Array.Empty<string>());
+            return new CliArguments(CliMode.ChangedSrc, []);
         }
         return new CliArguments(CliMode.ExplicitFiles, values.AsReadOnly());
     }
@@ -38,7 +38,7 @@ public static class CliArgumentsParser
 
     private static List<string> NonFlagArgs(string[] args)
     {
-        var values = new List<string>();
+        List<string> values = [];
         foreach (string arg in args)
         {
             if (arg.StartsWith("--", StringComparison.Ordinal))
@@ -52,7 +52,7 @@ public static class CliArgumentsParser
 
     private static void EnsureChangedIsNotCombined(bool changed, List<string> values)
     {
-        if (changed && values.Count > 0)
+        if (changed && values is not [])
         {
             throw new InvalidOperationException("--changed cannot be combined with file arguments");
         }

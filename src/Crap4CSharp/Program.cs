@@ -3,7 +3,7 @@ namespace Crap4CSharp;
 // C# mirror of Java's crap4java.Main. The class is named Program (not Main)
 // because C# forbids a member with the same name as its enclosing type;
 // the entry point, usage text and max-score helper mirror the oracle.
-public static class Program
+internal static class Program
 {
     public static int Main(string[] args)
     {

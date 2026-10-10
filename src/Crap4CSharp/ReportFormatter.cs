@@ -2,7 +2,7 @@ using System.Globalization;
 
 namespace Crap4CSharp;
 
-public static class ReportFormatter
+internal static class ReportFormatter
 {
     public static string Format(IReadOnlyList<MethodMetrics> entries)
     {

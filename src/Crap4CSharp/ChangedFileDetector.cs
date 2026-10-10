@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace Crap4CSharp;
 
-public static class ChangedFileDetector
+internal static class ChangedFileDetector
 {
     public static IReadOnlyList<string> ChangedCsFiles(string projectRoot)
     {
@@ -23,7 +23,7 @@ public static class ChangedFileDetector
             throw new InvalidOperationException("git status failed: " + (stdout + stderr));
         }
 
-        var files = new List<string>();
+        List<string> files = [];
         foreach (string line in stdout.Split('\n'))
         {
             string trimmedEnd = line.TrimEnd('\r');

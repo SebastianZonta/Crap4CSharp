@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Crap4CSharp.Tests;
 
 public sealed class ReportFormatterTest
@@ -10,15 +12,15 @@ public sealed class ReportFormatterTest
 
         string report = ReportFormatter.Format([scored, unknown]);
 
-        string header = string.Format("{0,-30} {1,-35} {2,4} {3,7} {4,8}", "Method", "Class", "CC", "Cov%", "CRAP");
+        string header = string.Format(CultureInfo.InvariantCulture, "{0,-30} {1,-35} {2,4} {3,7} {4,8}", "Method", "Class", "CC", "Cov%", "CRAP");
         string separator = new string('-', header.Length);
         string expected =
             "CRAP Report\n" +
             "===========\n" +
             $"{header}\n" +
             $"{separator}\n" +
-            $"{string.Format("{0,-30} {1,-35} {2,4} {3,7} {4,8}", "foo", "demo.Sample", 3, "85.0%", "4.5")}\n" +
-            $"{string.Format("{0,-30} {1,-35} {2,4} {3,7} {4,8}", "bar", "demo.Sample", 2, "  N/A ", "     N/A")}\n";
+            $"{string.Format(CultureInfo.InvariantCulture, "{0,-30} {1,-35} {2,4} {3,7} {4,8}", "foo", "demo.Sample", 3, "85.0%", "4.5")}\n" +
+            $"{string.Format(CultureInfo.InvariantCulture, "{0,-30} {1,-35} {2,4} {3,7} {4,8}", "bar", "demo.Sample", 2, "  N/A ", "     N/A")}\n";
 
         Assert.Equal(expected, report);
     }

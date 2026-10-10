@@ -9,7 +9,7 @@ namespace Crap4CSharp;
 // Coverage value: ticket 07 owns the top-level CoverageData record. Until it
 // lands (parallel work), this parser returns plain (Missed, Covered) pairs so
 // it builds standalone; ticket 10/integration will unify the value type.
-public static class CoberturaCoverageParser
+internal static class CoberturaCoverageParser
 {
     public static IReadOnlyDictionary<string, (int Missed, int Covered)> Parse(string? coberturaXmlPath)
     {

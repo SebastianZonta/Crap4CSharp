@@ -1,6 +1,6 @@
 namespace Crap4CSharp;
 
-public enum CliMode
+internal enum CliMode
 {
     Help,
     AllSrc,

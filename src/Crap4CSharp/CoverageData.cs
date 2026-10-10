@@ -1,6 +1,6 @@
 namespace Crap4CSharp;
 
-public sealed record CoverageData(int MissedInstructions, int CoveredInstructions)
+internal sealed record CoverageData(int MissedInstructions, int CoveredInstructions)
 {
     public double CoveragePercent()
     {

@@ -11,13 +11,13 @@ namespace Crap4CSharp;
 /// Edge decisions (ticket 03): <c>default</c> counts +1; switch-expression arms,
 /// <c>??</c> and <c>?.</c> do not count; local functions count like lambdas.
 /// </summary>
-public static class CSharpMethodParser
+internal static class CSharpMethodParser
 {
     public static IReadOnlyList<MethodDescriptor> Parse(string source)
     {
         var tree = CSharpSyntaxTree.ParseText(source);
         var root = tree.GetRoot();
-        var result = new List<MethodDescriptor>();
+        List<MethodDescriptor> result = [];
         foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
             // Mirrors getBody()==null / abstract exclusion (covers abstract, extern,
@@ -30,8 +30,7 @@ public static class CSharpMethodParser
             // Ticket 09 scope: methods of nested types are out. Constructors,
             // properties, accessors and operators are sibling syntax types and
             // never enter this enumeration (mirrors getReturnType()==null).
-            var declaringType = method.Parent as BaseTypeDeclarationSyntax;
-            if (declaringType is null)
+            if (method.Parent is not BaseTypeDeclarationSyntax declaringType)
                 continue;
             if (declaringType.Ancestors().OfType<BaseTypeDeclarationSyntax>().Any())
                 continue;

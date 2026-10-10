@@ -2,6 +2,7 @@ namespace Crap4CSharp.Tests;
 
 public sealed class CrapAnalyzerTest : IDisposable
 {
+    private static readonly string[] ExpectedMethodOrder = ["Alpha", "Beta", "Gamma"];
     private readonly string _tempDir = Directory.CreateTempSubdirectory("crap4csharp-test-").FullName;
 
     public void Dispose()
@@ -206,7 +207,7 @@ public sealed class CrapAnalyzerTest : IDisposable
 
         var result = CrapAnalyzer.Analyze(_tempDir, new[] { source }, cobertura);
 
-        Assert.Equal(new[] { "Alpha", "Beta", "Gamma" },
+        Assert.Equal(ExpectedMethodOrder,
             result.Select(m => m.MethodName).ToList());
     }
 }

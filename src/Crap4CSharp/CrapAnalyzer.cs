@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace Crap4CSharp;
 
-public static class CrapAnalyzer
+internal static class CrapAnalyzer
 {
     private static readonly Regex NamespacePattern =
         new(@"(?m)^\s*namespace\s+([A-Za-z_][\w.]*)\s*[;{]", RegexOptions.Compiled);
@@ -11,7 +11,7 @@ public static class CrapAnalyzer
         string projectRoot, IReadOnlyList<string> files, string? coberturaXml)
     {
         var coverageMap = ToCoverageData(CoberturaCoverageParser.Parse(coberturaXml));
-        var metrics = new List<MethodMetrics>();
+        List<MethodMetrics> metrics = [];
 
         foreach (string file in files)
         {

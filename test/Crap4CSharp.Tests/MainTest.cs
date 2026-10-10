@@ -25,13 +25,13 @@ public sealed class MainTest : IDisposable
     [Fact]
     public void HelpWritesUsageToStdout()
     {
-        var output = new StringWriter();
-        var err = new StringWriter();
+        using var output = new StringWriter();
+        using var err = new StringWriter();
 
         int exit = Program.Run(["--help"], _tempDir, output, err, NoopCoverage);
 
         Assert.Equal(0, exit);
-        Assert.Contains("Usage:", output.ToString());
+        Assert.Contains("Usage:", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -64,8 +64,8 @@ public sealed class MainTest : IDisposable
             }
             """);
 
-        var output = new StringWriter();
-        var err = new StringWriter();
+        using var output = new StringWriter();
+        using var err = new StringWriter();
 
         int exit = Program.Run(
             [Path.Combine("src", "Demo", "Sample.cs")],
@@ -75,8 +75,8 @@ public sealed class MainTest : IDisposable
             NoopCoverage);
 
         Assert.Equal(0, exit);
-        Assert.Contains("Sample", output.ToString());
-        Assert.Contains("Alpha", output.ToString());
+        Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Alpha", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -97,14 +97,14 @@ public sealed class MainTest : IDisposable
             }
             """);
 
-        var output = new StringWriter();
-        var err = new StringWriter();
+        using var output = new StringWriter();
+        using var err = new StringWriter();
 
         int exit = Program.Run(["module-a"], _tempDir, output, err, NoopCoverage);
 
         Assert.Equal(0, exit);
-        Assert.Contains("Sample", output.ToString());
-        Assert.Contains("Alpha", output.ToString());
+        Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Alpha", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

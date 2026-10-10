@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace Crap4CSharp.Tests;
 
-public class ChangedFileDetectorTest : IDisposable
+public sealed class ChangedFileDetectorTest : IDisposable
 {
     private readonly string _tempDir = Directory.CreateTempSubdirectory().FullName;
 
@@ -49,7 +49,7 @@ public class ChangedFileDetectorTest : IDisposable
         var error = Assert.Throws<InvalidOperationException>(
             () => ChangedFileDetector.ChangedCsFiles(_tempDir));
 
-        Assert.Contains("not a git repository", error.Message);
+        Assert.Contains("not a git repository", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
