@@ -8,15 +8,30 @@ public sealed class ProcessCommandExecutorTest : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_tempDir))
+        try
         {
-            Directory.Delete(_tempDir, recursive: true);
+            if (Directory.Exists(_tempDir))
+            {
+                Directory.Delete(_tempDir, recursive: true);
+            }
+        }
+        catch (IOException)
+        {
+            // best-effort cleanup
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // best-effort cleanup
         }
     }
 
     [Fact]
     public void ReturnsExitCodeFromLaunchedProcess()
     {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
         int exit = new ProcessCommandExecutor().Run(["/bin/sh", "-c", "exit 7"], _tempDir);
 
         Assert.Equal(7, exit);
@@ -25,6 +40,10 @@ public sealed class ProcessCommandExecutorTest : IDisposable
     [Fact]
     public void PassesArgumentsWithSpacesAsSingleArgvEntry()
     {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
         // The -c script contains a space and quotes; via ArgumentList it must
         // arrive as one argv entry, so $0 binds to "7" and the exit code is 7.
         int exit = new ProcessCommandExecutor().Run(["/bin/sh", "-c", "exit \"$0\"", "7"], _tempDir);

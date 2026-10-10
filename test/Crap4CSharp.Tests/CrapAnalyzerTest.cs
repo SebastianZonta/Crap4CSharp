@@ -7,7 +7,21 @@ public sealed class CrapAnalyzerTest : IDisposable
 
     public void Dispose()
     {
-        Directory.Delete(_tempDir, recursive: true);
+        try
+        {
+            if (Directory.Exists(_tempDir))
+            {
+                Directory.Delete(_tempDir, recursive: true);
+            }
+        }
+        catch (IOException)
+        {
+            // best-effort cleanup
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // best-effort cleanup
+        }
         GC.SuppressFinalize(this);
     }
 

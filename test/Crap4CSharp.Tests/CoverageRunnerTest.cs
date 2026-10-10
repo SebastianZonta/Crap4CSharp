@@ -6,9 +6,20 @@ public sealed class CoverageRunnerTest : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_tempDir))
+        try
         {
-            Directory.Delete(_tempDir, recursive: true);
+            if (Directory.Exists(_tempDir))
+            {
+                Directory.Delete(_tempDir, recursive: true);
+            }
+        }
+        catch (IOException)
+        {
+            // best-effort cleanup
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // best-effort cleanup
         }
     }
 
@@ -97,7 +108,7 @@ public sealed class CoverageRunnerTest : IDisposable
 
         public int Run(IReadOnlyList<string> args, string workingDirectory)
         {
-            Commands.Add(args);
+            Commands.Add([.. args]);
             Directories.Add(workingDirectory);
             return exitCode;
         }

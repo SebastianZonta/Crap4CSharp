@@ -23,7 +23,21 @@ public class SourceFileFinderTest
         }
         finally
         {
-            Directory.Delete(tempDir, recursive: true);
+            try
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, recursive: true);
+                }
+            }
+            catch (IOException)
+            {
+                // best-effort cleanup
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // best-effort cleanup
+            }
         }
     }
 }

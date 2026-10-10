@@ -4,36 +4,37 @@ namespace Crap4CSharp;
 
 internal static class ReportFormatter
 {
+    private static readonly string Header = string.Create(
+        CultureInfo.InvariantCulture, $"{"Method",-30} {"Class",-35} {"CC",4} {"Cov%",7} {"CRAP",8}");
+    private static readonly string Separator = new('-', Header.Length);
+    // Ascending key order (null smallest), so descending puts nulls last.
+    private static readonly Comparer<double?> CrapKeyComparer = Comparer<double?>.Create(
+        static (a, b) => (a, b) switch
+        {
+            (null, null) => 0,
+            (null, _) => -1,
+            (_, null) => 1,
+            _ => a.Value!.CompareTo(b.Value!),
+        });
+    private const int EstimatedRowLength = 90;
+
     public static string Format(IReadOnlyList<MethodMetrics> entries)
     {
-        var sorted = entries
-            .OrderBy(e => e.CrapScore is null)
-            .ThenBy(e => e.CrapScore is null ? 0.0 : -e.CrapScore.Value)
-            .ToList();
+        ArgumentNullException.ThrowIfNull(entries);
+        IEnumerable<MethodMetrics> sorted =
+            entries.OrderByDescending(static e => e.CrapScore, CrapKeyComparer);
 
-        string header = string.Format(
-            CultureInfo.InvariantCulture,
-            "{0,-30} {1,-35} {2,4} {3,7} {4,8}",
-            "Method", "Class", "CC", "Cov%", "CRAP");
-        string separator = new string('-', header.Length);
-
-        var builder = new System.Text.StringBuilder();
+        var builder = new System.Text.StringBuilder((entries.Count + 4) * EstimatedRowLength);
         builder.Append("CRAP Report\n");
         builder.Append("===========\n");
-        builder.Append(header).Append('\n');
-        builder.Append(separator).Append('\n');
+        builder.Append(Header).Append('\n');
+        builder.Append(Separator).Append('\n');
 
         foreach (var entry in sorted)
         {
-            string row = string.Format(
-                CultureInfo.InvariantCulture,
-                "{0,-30} {1,-35} {2,4} {3,7} {4,8}",
-                entry.MethodName,
-                entry.ClassName,
-                entry.Complexity,
-                FormatCoverage(entry.CoveragePercent),
-                FormatCrap(entry.CrapScore));
-            builder.Append(row).Append('\n');
+            string coverage = FormatCoverage(entry.CoveragePercent);
+            string crap = FormatCrap(entry.CrapScore);
+            builder.Append(CultureInfo.InvariantCulture, $"{entry.MethodName,-30} {entry.ClassName,-35} {entry.Complexity,4} {coverage,7} {crap,8}\n");
         }
 
         return builder.ToString();
@@ -46,7 +47,7 @@ internal static class ReportFormatter
             return "  N/A ";
         }
 
-        return string.Format(CultureInfo.InvariantCulture, "{0,5:F1}%", coverage.Value);
+        return string.Create(CultureInfo.InvariantCulture, $"{coverage.Value,5:F1}%");
     }
 
     private static string FormatCrap(double? score)
@@ -56,6 +57,6 @@ internal static class ReportFormatter
             return "     N/A";
         }
 
-        return string.Format(CultureInfo.InvariantCulture, "{0,8:F1}", score.Value);
+        return string.Create(CultureInfo.InvariantCulture, $"{score.Value,8:F1}");
     }
 }
