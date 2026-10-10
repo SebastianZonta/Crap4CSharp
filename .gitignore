@@ -1,1 +1,4 @@
 .codegraph/
+bin/
+obj/
+TestResults/
