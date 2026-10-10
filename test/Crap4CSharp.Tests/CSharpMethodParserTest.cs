@@ -376,6 +376,58 @@ public sealed class CSharpMethodParserTest
     }
 
     [Fact]
+    public void ArrowBodiedMethodIsReportedWithComplexityOne()
+    {
+        string source = """
+            class Sample {
+                public static int Add(int a, int b) => a + b;
+            }
+            """;
+
+        var methods = CSharpMethodParser.Parse(source);
+
+        Assert.Equal(new List<MethodDescriptor> { new("Add", 2, 2, 1) }, methods);
+    }
+
+    [Fact]
+    public void ArrowBodiedMethodCountsDecisionNodes()
+    {
+        string source = """
+            class Sample {
+                int Pick(bool a, bool b, int x) => a && b || x > 0 ? 1 : 0;
+            }
+            """;
+
+        var methods = CSharpMethodParser.Parse(source);
+
+        Assert.Equal(new List<MethodDescriptor> { new("Pick", 2, 2, 4) }, methods);
+    }
+
+    [Fact]
+    public void BlockBodiedMethodAlongsideArrowIsUnchanged()
+    {
+        string source = """
+            class Sample {
+                int Block(int x) {
+                    return x;
+                }
+
+                int Arrow(int x) => x;
+            }
+            """;
+
+        var methods = CSharpMethodParser.Parse(source);
+
+        Assert.Equal(
+            new List<MethodDescriptor>
+            {
+                new("Block", 2, 4, 1),
+                new("Arrow", 6, 6, 1),
+            },
+            methods);
+    }
+
+    [Fact]
     public void NestedTypeDeclarationsDoNotChangeComplexity()
     {
         var walker = new CcWalker();

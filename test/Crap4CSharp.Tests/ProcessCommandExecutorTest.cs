@@ -52,6 +52,19 @@ public sealed class ProcessCommandExecutorTest : IDisposable
     }
 
     [Fact]
+    public void ChildStdoutAndStderrAreDrainedWithoutThrowing()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        int exit = new ProcessCommandExecutor().Run(
+            ["/bin/sh", "-c", "echo out; echo err >&2; exit 5"], _tempDir);
+
+        Assert.Equal(5, exit);
+    }
+
+    [Fact]
     public async Task MissingWorkingDirectoryThrowsDirectoryNotFound()
     {
         string missing = Path.Combine(_tempDir, "does-not-exist");

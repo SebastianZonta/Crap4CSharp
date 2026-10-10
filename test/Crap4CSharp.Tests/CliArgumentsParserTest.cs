@@ -66,6 +66,13 @@ public class CliArgumentsParserTest
     }
 
     [Fact]
+    public void QuestionMarkMeansHelpMode()
+    {
+        CliArguments args = CliArgumentsParser.Parse(["-?"]);
+        Assert.Equal(CliMode.Help, args.Mode);
+    }
+
+    [Fact]
     public void VersionFlagMeansVersionMode()
     {
         CliArguments args = CliArgumentsParser.Parse(["--version"]);

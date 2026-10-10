@@ -26,6 +26,10 @@ internal sealed class ProcessCommandExecutor : ICommandExecutor
             FileName = args[0],
             WorkingDirectory = workingDirectory,
             UseShellExecute = false,
+            // Redirected and drained: child output must not leak into our
+            // stdout, which carries the machine-readable report (json/csv).
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
         };
         // ArgumentList passes each element as a single argv entry (execvp),
         // so args containing spaces or semicolons need no shell quoting.
@@ -36,6 +40,10 @@ internal sealed class ProcessCommandExecutor : ICommandExecutor
 
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Failed to start process: " + args[0]);
+        // Concurrent async reads: sequential sync ReadToEnd can deadlock when
+        // either pipe buffer fills on large command output.
+        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        Task<string> stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
         try
         {
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
@@ -45,6 +53,7 @@ internal sealed class ProcessCommandExecutor : ICommandExecutor
             process.TryKillTree();
             throw;
         }
+        await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
         return process.ExitCode;
     }
 }

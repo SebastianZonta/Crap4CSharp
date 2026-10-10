@@ -32,7 +32,7 @@ internal static class CliArgumentsParser
             }
             if (TrySplitFlagValue(arg, out ReadOnlySpan<char> name, out ReadOnlySpan<char> inlineValue, out bool hasInline))
             {
-                if (IsFlag(name, "--help") || IsFlag(name, "-h"))
+                if (IsFlag(name, "--help") || IsFlag(name, "-h") || IsFlag(name, "-?"))
                 {
                     RejectValue(name, hasInline);
                     help = true;

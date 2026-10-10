@@ -30,7 +30,7 @@ internal sealed class MethodCollector : CSharpSyntaxWalker
 
     public override void VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
-        if (node.Body is null)
+        if (node.Body is null && node.ExpressionBody is null)
             return;
         if (node.Modifiers.Any(SyntaxKind.AbstractKeyword))
             return;
@@ -43,9 +43,10 @@ internal sealed class MethodCollector : CSharpSyntaxWalker
         }
 
         _complexity.Reset();
-        _complexity.Visit(node.Body);
+        CSharpSyntaxNode implementation = (CSharpSyntaxNode?)node.Body ?? node.ExpressionBody!;
+        _complexity.Visit(implementation);
         int start = _lines.GetLinePosition(node.Span.Start).Line + 1;
-        int end = _lines.GetLinePosition(node.Body.Span.End).Line + 1;
+        int end = _lines.GetLinePosition(implementation.Span.End).Line + 1;
         Methods.Add(new MethodDescriptor(node.Identifier.ValueText, start, end, _complexity.Complexity));
     }
 }
