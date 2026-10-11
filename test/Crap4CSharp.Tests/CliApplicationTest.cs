@@ -1046,6 +1046,73 @@ public sealed class CliApplicationTest : IDisposable
         Assert.Contains("Project directory not found", err.ToString(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TestTargetForPrefersSiblingNameMatch()
+    {
+        var moduleRoot = Path.Combine(_tempDir, "src", "Bookings");
+        Directory.CreateDirectory(moduleRoot);
+        File.WriteAllText(Path.Combine(moduleRoot, "Bookings.csproj"), "<Project/>");
+        var sibling = Path.Combine(_tempDir, "tests", "Bookings.Tests", "Bookings.Tests.csproj");
+        Directory.CreateDirectory(Path.GetDirectoryName(sibling)!);
+        File.WriteAllText(sibling, "<Project/>");
+
+        Assert.Equal(sibling, CliApplication.TestTargetFor(_tempDir, moduleRoot));
+    }
+
+    [Fact]
+    public void TestTargetForFallsBackToProjectReferenceContent()
+    {
+        var moduleRoot = Path.Combine(_tempDir, "src", "Bookings");
+        Directory.CreateDirectory(moduleRoot);
+        File.WriteAllText(Path.Combine(moduleRoot, "Bookings.csproj"), "<Project/>");
+        var sibling = Path.Combine(_tempDir, "tests", "FunctionalTests", "FunctionalTests.csproj");
+        Directory.CreateDirectory(Path.GetDirectoryName(sibling)!);
+        File.WriteAllText(sibling, """<Project><ItemGroup><ProjectReference Include="../../src/Bookings/Bookings.csproj" /></ItemGroup></Project>""");
+
+        Assert.Equal(sibling, CliApplication.TestTargetFor(_tempDir, moduleRoot));
+    }
+
+    [Fact]
+    public void TestTargetForFallsBackToModuleRootWithoutSibling()
+    {
+        var moduleRoot = Path.Combine(_tempDir, "src", "Bookings");
+        Directory.CreateDirectory(moduleRoot);
+        File.WriteAllText(Path.Combine(moduleRoot, "Bookings.csproj"), "<Project/>");
+
+        Assert.Equal(moduleRoot, CliApplication.TestTargetFor(_tempDir, moduleRoot));
+    }
+
+    [Fact]
+    public void TestTargetForPrefersSingleSolutionOverSibling()
+    {
+        var sln = Path.Combine(_tempDir, "App.sln");
+        File.WriteAllText(sln, "");
+        var moduleRoot = Path.Combine(_tempDir, "src", "Bookings");
+        Directory.CreateDirectory(moduleRoot);
+        File.WriteAllText(Path.Combine(moduleRoot, "Bookings.csproj"), "<Project/>");
+        var sibling = Path.Combine(_tempDir, "tests", "Bookings.Tests", "Bookings.Tests.csproj");
+        Directory.CreateDirectory(Path.GetDirectoryName(sibling)!);
+        File.WriteAllText(sibling, "<Project/>");
+
+        Assert.Equal(sln, CliApplication.TestTargetFor(_tempDir, moduleRoot));
+    }
+
+    [Fact]
+    public void TestTargetForIgnoresBinObjSiblingCandidates()
+    {
+        var moduleRoot = Path.Combine(_tempDir, "src", "Bookings");
+        Directory.CreateDirectory(moduleRoot);
+        File.WriteAllText(Path.Combine(moduleRoot, "Bookings.csproj"), "<Project/>");
+        var binCandidate = Path.Combine(_tempDir, "tests", "Bookings.Tests", "bin", "Bookings.Tests.csproj");
+        Directory.CreateDirectory(Path.GetDirectoryName(binCandidate)!);
+        File.WriteAllText(binCandidate, "<Project/>");
+        var objCandidate = Path.Combine(_tempDir, "tests", "Other", "obj", "Other.csproj");
+        Directory.CreateDirectory(Path.GetDirectoryName(objCandidate)!);
+        File.WriteAllText(objCandidate, """<Project><ItemGroup><ProjectReference Include="../../../src/Bookings/Bookings.csproj" /></ItemGroup></Project>""");
+
+        Assert.Equal(moduleRoot, CliApplication.TestTargetFor(_tempDir, moduleRoot));
+    }
+
     private static void Run(string command, string dir)
     {
         var startInfo = new System.Diagnostics.ProcessStartInfo("sh", $"-c \"{command}\"")

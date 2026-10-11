@@ -168,7 +168,9 @@ internal sealed class CliApplication
     // library project exits 0 but produces no Cobertura file, so on the
     // standard src/test split the module root alone always yields N/A.
     // When the workspace root holds exactly one solution, test that instead
-    // (results still land under the module's TestResults); otherwise keep
+    // (results still land under the module's TestResults); otherwise look
+    // for a sibling test project (e.g. tests/Bookings.Tests/Bookings.Tests.csproj
+    // for module src/Bookings/Bookings.csproj) and only then keep
     // the module root (e.g. the module is itself a test project).
     internal static string TestTargetFor(string workspaceRoot, string moduleRoot)
     {
@@ -192,9 +194,137 @@ internal sealed class CliApplication
         }
         catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is DirectoryNotFoundException)
         {
+            return moduleRoot;
+        }
+        try
+        {
+            var sibling = FindSiblingTestProject(workspaceRoot, moduleRoot);
+            if (sibling is not null)
+            {
+                return sibling;
+            }
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is DirectoryNotFoundException)
+        {
             // Fall through to the module root below.
         }
         return moduleRoot;
+    }
+
+    // Sibling test project for a library module: ordinal-first
+    // `<Module>.Tests`/`.Test`/`.UnitTests` match wins without reading file
+    // contents; otherwise the first project whose raw text references the
+    // module csproj file name (the ProjectReference Include tail). Skips
+    // bin/obj output and the module itself; null when nothing matches.
+    internal static string? FindSiblingTestProject(string workspaceRoot, string moduleRoot)
+    {
+        var root = Path.GetFullPath(workspaceRoot).TrimEnd(Path.DirectorySeparatorChar);
+        var module = Path.GetFullPath(moduleRoot).TrimEnd(Path.DirectorySeparatorChar);
+        if (string.Equals(root, module, StringComparison.Ordinal))
+        {
+            return null;
+        }
+        List<string> moduleFiles;
+        try
+        {
+            moduleFiles =
+            [
+                .. Directory.EnumerateFiles(module, "*.csproj")
+                    .Select(Path.GetFileName)
+                    .Where(name => name is not null)
+                    .Cast<string>(),
+            ];
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is DirectoryNotFoundException)
+        {
+            return null;
+        }
+        if (moduleFiles.Count == 0)
+        {
+            return null;
+        }
+        var moduleBases = moduleFiles
+            .Select(f => Path.GetFileNameWithoutExtension(f))
+            .ToHashSet(StringComparer.Ordinal);
+        List<string> candidates;
+        try
+        {
+            var prefix = module + Path.DirectorySeparatorChar;
+            candidates =
+            [
+                .. Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+                    .Where(c => !HasBuildOutputSegment(c))
+                    .Where(c =>
+                    {
+                        var full = Path.GetFullPath(c);
+                        return !string.Equals(full, module, StringComparison.Ordinal)
+                            && !full.StartsWith(prefix, StringComparison.Ordinal);
+                    }),
+            ];
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is DirectoryNotFoundException)
+        {
+            return null;
+        }
+        string? best = null;
+        foreach (var candidate in candidates)
+        {
+            var name = Path.GetFileNameWithoutExtension(candidate);
+            foreach (var baseName in moduleBases)
+            {
+                if (string.Equals(name, baseName + ".Tests", StringComparison.Ordinal)
+                    || string.Equals(name, baseName + ".Test", StringComparison.Ordinal)
+                    || string.Equals(name, baseName + ".UnitTests", StringComparison.Ordinal))
+                {
+                    if (best is null || string.Compare(candidate, best, StringComparison.Ordinal) < 0)
+                    {
+                        best = candidate;
+                    }
+                    break;
+                }
+            }
+        }
+        if (best is not null)
+        {
+            return best;
+        }
+        foreach (var candidate in candidates)
+        {
+            string text;
+            try
+            {
+                text = File.ReadAllText(candidate);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                continue;
+            }
+            foreach (var moduleFile in moduleFiles)
+            {
+                if (text.Contains(moduleFile, StringComparison.Ordinal))
+                {
+                    if (best is null || string.Compare(candidate, best, StringComparison.Ordinal) < 0)
+                    {
+                        best = candidate;
+                    }
+                    break;
+                }
+            }
+        }
+        return best;
+    }
+
+    private static bool HasBuildOutputSegment(string path)
+    {
+        foreach (var segment in path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+        {
+            if (string.Equals(segment, "bin", StringComparison.Ordinal)
+                || string.Equals(segment, "obj", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ParseOutcome ParseArguments(string[] args)
