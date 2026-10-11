@@ -46,6 +46,14 @@ internal sealed class CliApplication
             await _err.WriteLineAsync(ex.Message).ConfigureAwait(false);
             return 1;
         }
+        catch (InvalidOperationException ex)
+        {
+            // git (`--changed` outside a repo) and coverage (`dotnet test`
+            // failure) surface as InvalidOperationException: report and exit 1
+            // instead of crashing with an unhandled exception.
+            await _err.WriteLineAsync(ex.Message).ConfigureAwait(false);
+            return 1;
+        }
     }
 
     private async Task<int> ExecuteOnRootAsync(

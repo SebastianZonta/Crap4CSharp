@@ -1034,6 +1034,34 @@ public sealed class CliApplicationTest : IDisposable
     }
 
     [Fact]
+    public void ChangedOutsideGitRepoExitsOneWithoutThrowing()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute(["--changed"]);
+
+        Assert.Equal(1, exit);
+        Assert.Contains("git status failed", err.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CoverageFailureExitsOneWithoutThrowing()
+    {
+        var rel = WriteTwoMethodSample();
+        var coverageRunner = new CoverageRunner(new FakeExecutor((_, _) => 1));
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
+            .Execute([rel]);
+
+        Assert.Equal(1, exit);
+        Assert.Contains("Coverage command failed", err.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NonexistentPathWithChangedExitsOne()
     {
         using var output = new StringWriter();
