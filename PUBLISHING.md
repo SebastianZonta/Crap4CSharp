@@ -11,7 +11,8 @@ Signed in → your username → **Trusted Publishing** → add a policy:
 
 - Repository Owner: the GitHub repo owner
 - Repository: the repo name
-- Workflow File: `publish.yml` (file name only)
+- Workflow File: `ci.yml` (file name only — publish is a job in the CI
+  workflow so it only runs after build + e2e pass)
 - Environment: empty (the workflow uses no environments)
 
 Without that policy, the `NuGet login` step fails and nothing is
