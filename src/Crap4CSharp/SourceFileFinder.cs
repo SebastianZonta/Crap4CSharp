@@ -4,13 +4,13 @@ internal static class SourceFileFinder
 {
     public static IReadOnlyList<string> FindAllCsFilesUnderSrc(string projectRoot)
     {
-        string src = Path.Combine(projectRoot, ToolConstants.SrcDirName);
+        var src = Path.Combine(projectRoot, ToolConstants.SrcDirName);
         if (!Directory.Exists(src))
         {
             return [];
         }
 
-        EnumerationOptions options = FileSystemHelpers.SharedEnumeration();
+        var options = FileSystemHelpers.SharedEnumeration();
         options.MatchCasing = MatchCasing.CaseInsensitive;
         string[] files = [.. Directory.EnumerateFiles(src, ToolConstants.CSharpSearchPattern, options)];
         Array.Sort(files, StringComparer.Ordinal);

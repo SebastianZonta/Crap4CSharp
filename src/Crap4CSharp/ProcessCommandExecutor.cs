@@ -33,7 +33,7 @@ internal sealed class ProcessCommandExecutor : ICommandExecutor
         };
         // ArgumentList passes each element as a single argv entry (execvp),
         // so args containing spaces or semicolons need no shell quoting.
-        foreach (string arg in args.Skip(1))
+        foreach (var arg in args.Skip(1))
         {
             startInfo.ArgumentList.Add(arg);
         }
@@ -42,8 +42,8 @@ internal sealed class ProcessCommandExecutor : ICommandExecutor
             ?? throw new InvalidOperationException("Failed to start process: " + args[0]);
         // Concurrent async reads: sequential sync ReadToEnd can deadlock when
         // either pipe buffer fills on large command output.
-        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        Task<string> stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
         try
         {
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);

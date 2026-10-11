@@ -37,16 +37,16 @@ public sealed class ChangedFileDetectorTest : IDisposable
         Run("git config user.email test@example.com", _tempDir);
         Run("git config user.name test", _tempDir);
 
-        string src = Path.Combine(_tempDir, "src", "main", "cs", "demo");
+        var src = Path.Combine(_tempDir, "src", "main", "cs", "demo");
         Directory.CreateDirectory(src);
-        string tracked = Path.Combine(src, "Tracked.cs");
+        var tracked = Path.Combine(src, "Tracked.cs");
         File.WriteAllText(tracked, "class Tracked {}\n");
 
         Run("git add .", _tempDir);
         Run("git commit -m init", _tempDir);
 
         File.WriteAllText(tracked, "class Tracked { int x = 1; }\n");
-        string untracked = Path.Combine(src, "NewFile.cs");
+        var untracked = Path.Combine(src, "NewFile.cs");
         File.WriteAllText(untracked, "class NewFile {}\n");
         File.WriteAllText(Path.Combine(_tempDir, "README.md"), "ignore me\n");
 
@@ -81,12 +81,12 @@ public sealed class ChangedFileDetectorTest : IDisposable
         Run("git config user.email test@example.com", _tempDir);
         Run("git config user.name test", _tempDir);
 
-        string mainSrc = Path.Combine(_tempDir, "src", "main", "cs", "demo");
-        string otherDir = Path.Combine(_tempDir, "tests", "Crap4CSharp.Tests");
+        var mainSrc = Path.Combine(_tempDir, "src", "main", "cs", "demo");
+        var otherDir = Path.Combine(_tempDir, "tests", "Crap4CSharp.Tests");
         Directory.CreateDirectory(mainSrc);
         Directory.CreateDirectory(otherDir);
 
-        string tracked = Path.Combine(mainSrc, "Tracked.cs");
+        var tracked = Path.Combine(mainSrc, "Tracked.cs");
         File.WriteAllText(tracked, "class Tracked {}\n");
         Run("git add .", _tempDir);
         Run("git commit -m init", _tempDir);
@@ -129,9 +129,9 @@ public sealed class ChangedFileDetectorTest : IDisposable
         Run("git config user.email test@example.com", _tempDir);
         Run("git config user.name test", _tempDir);
 
-        string src = Path.Combine(_tempDir, "src", "main", "cs", "demo");
+        var src = Path.Combine(_tempDir, "src", "main", "cs", "demo");
         Directory.CreateDirectory(src);
-        string tracked = Path.Combine(src, "Tracked.cs");
+        var tracked = Path.Combine(src, "Tracked.cs");
         await File.WriteAllTextAsync(tracked, "class Tracked {}\n");
 
         Run("git add .", _tempDir);
@@ -155,14 +155,14 @@ public sealed class ChangedFileDetectorTest : IDisposable
         {
             return;
         }
-        string spaced = Path.Combine(_tempDir, "dir with spaces");
-        string src = Path.Combine(spaced, "src");
+        var spaced = Path.Combine(_tempDir, "dir with spaces");
+        var src = Path.Combine(spaced, "src");
         Directory.CreateDirectory(src);
         Run("git init", spaced);
         Run("git config user.email test@example.com", spaced);
         Run("git config user.name test", spaced);
 
-        string tracked = Path.Combine(src, "Tracked.cs");
+        var tracked = Path.Combine(src, "Tracked.cs");
         await File.WriteAllTextAsync(tracked, "class Tracked {}\n");
         Run("git add .", spaced);
         Run("git commit -m init", spaced);
@@ -191,7 +191,7 @@ public sealed class ChangedFileDetectorTest : IDisposable
     [Fact]
     public void MissingProjectRootThrowsDirectoryNotFound()
     {
-        string missing = Path.Combine(_tempDir, "does-not-exist");
+        var missing = Path.Combine(_tempDir, "does-not-exist");
 
         Assert.Throws<DirectoryNotFoundException>(
             () => ChangedFileDetector.ChangedCsFiles(missing));
@@ -215,7 +215,7 @@ public sealed class ChangedFileDetectorTest : IDisposable
         Run("git config user.email test@example.com", _tempDir);
         Run("git config user.name test", _tempDir);
 
-        string src = Path.Combine(_tempDir, "src");
+        var src = Path.Combine(_tempDir, "src");
         Directory.CreateDirectory(src);
         File.WriteAllText(Path.Combine(src, "Old.cs"), "class Old {}\n");
         Run("git add .", _tempDir);
@@ -245,7 +245,7 @@ public sealed class ChangedFileDetectorTest : IDisposable
             UseShellExecute = false,
         };
         using var process = Process.Start(startInfo)!;
-        string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+        var output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
         process.WaitForExit();
         if (process.ExitCode != 0)
         {

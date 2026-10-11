@@ -31,10 +31,10 @@ public sealed class CliApplicationTest : IDisposable
         public int Run(IReadOnlyList<string> command, string directory) => _run(command, directory);
     }
 
-    private static readonly CoverageRunner NoopCoverage =
+    private static readonly CoverageRunner _noopCoverage =
         new(new FakeExecutor((_, _) => 0));
 
-    private static readonly string[] ResultRuns = ["run-b", "run-a"];
+    private static readonly string[] _resultRuns = ["run-b", "run-a"];
 
     [Fact]
     public void ParseErrorsReturnUsageAndExitOne()
@@ -42,7 +42,7 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
             .Execute(["--changed", Path.Combine("src", "Sample.cs")]);
 
         Assert.Equal(1, exit);
@@ -56,7 +56,7 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
             .Execute([]);
 
         Assert.Equal(0, exit);
@@ -66,9 +66,9 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void DoesNotWarnWhenCoberturaXmlExists()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
-        string source = Path.Combine(sourceRoot, "Sample.cs");
+        var source = Path.Combine(sourceRoot, "Sample.cs");
         File.WriteAllText(source, """
             namespace Demo;
 
@@ -78,7 +78,7 @@ public sealed class CliApplicationTest : IDisposable
                 }
             }
             """);
-        string resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
+        var resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
         using var output = new StringWriter();
         using var err = new StringWriter();
         var coverageRunner = new CoverageRunner(new FakeExecutor((_, _) =>
@@ -107,7 +107,7 @@ public sealed class CliApplicationTest : IDisposable
             return 0;
         }));
 
-        int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
             .Execute([Path.Combine("src", "Demo", "Sample.cs")]);
 
         Assert.Equal(0, exit);
@@ -118,11 +118,11 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void ExplicitFileUsesOwningModuleForCoverageAndXml()
     {
-        string moduleRoot = Path.Combine(_tempDir, "tools", "mutate4csharp");
-        string sourceRoot = Path.Combine(moduleRoot, "src");
+        var moduleRoot = Path.Combine(_tempDir, "tools", "mutate4csharp");
+        var sourceRoot = Path.Combine(moduleRoot, "src");
         Directory.CreateDirectory(sourceRoot);
         File.WriteAllText(Path.Combine(moduleRoot, "Module.csproj"), "<Project/>");
-        string source = Path.Combine(sourceRoot, "Sample.cs");
+        var source = Path.Combine(sourceRoot, "Sample.cs");
         File.WriteAllText(source, """
             namespace Mutate4CSharp;
 
@@ -135,7 +135,7 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
         var directories = new List<string>();
-        string resultsDir = Path.Combine(moduleRoot, "TestResults", "run1");
+        var resultsDir = Path.Combine(moduleRoot, "TestResults", "run1");
         var coverageRunner = new CoverageRunner(new FakeExecutor((_, directory) =>
         {
             directories.Add(directory);
@@ -163,7 +163,7 @@ public sealed class CliApplicationTest : IDisposable
             return 0;
         }));
 
-        int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
             .Execute([Path.Combine("tools", "mutate4csharp", "src", "Sample.cs")]);
 
         Assert.Equal(0, exit);
@@ -175,9 +175,9 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void ThresholdBreachReturnsTwoAndWritesThresholdToStderr()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
-        string source = Path.Combine(sourceRoot, "Sample.cs");
+        var source = Path.Combine(sourceRoot, "Sample.cs");
         File.WriteAllText(source, """
             namespace Demo;
 
@@ -197,7 +197,7 @@ public sealed class CliApplicationTest : IDisposable
                 }
             }
             """);
-        string resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
+        var resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
         using var output = new StringWriter();
         using var err = new StringWriter();
         var coverageRunner = new CoverageRunner(new FakeExecutor((_, _) =>
@@ -226,7 +226,7 @@ public sealed class CliApplicationTest : IDisposable
             return 0;
         }));
 
-        int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
             .Execute([Path.Combine("src", "Demo", "Sample.cs")]);
 
         Assert.Equal(2, exit);
@@ -245,13 +245,13 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void ModuleRootForFindsNearestAncestorWithCsproj()
     {
-        string moduleRoot = Path.Combine(_tempDir, "tools", "mutate4csharp");
-        string source = Path.Combine(moduleRoot, "src", "Sample.cs");
+        var moduleRoot = Path.Combine(_tempDir, "tools", "mutate4csharp");
+        var source = Path.Combine(moduleRoot, "src", "Sample.cs");
         Directory.CreateDirectory(Path.GetDirectoryName(source)!);
         File.WriteAllText(Path.Combine(moduleRoot, "Module.csproj"), "<Project/>");
         File.WriteAllText(source, "class Sample {}");
 
-        string module = CliApplication.ModuleRootFor(_tempDir, source);
+        var module = CliApplication.ModuleRootFor(_tempDir, source);
 
         Assert.Equal(moduleRoot, module);
     }
@@ -259,7 +259,7 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void SortsMixedKnownAndUnknownScoresWithUnknownsLast()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
         File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
             namespace Demo;
@@ -284,7 +284,7 @@ public sealed class CliApplicationTest : IDisposable
                 }
             }
             """);
-        string resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
+        var resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
         using var output = new StringWriter();
         using var err = new StringWriter();
         var coverageRunner = new CoverageRunner(new FakeExecutor((_, _) =>
@@ -319,11 +319,11 @@ public sealed class CliApplicationTest : IDisposable
             return 0;
         }));
 
-        int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
             .Execute([Path.Combine("src", "Demo", "Sample.cs")]);
 
         Assert.Equal(0, exit);
-        string report = output.ToString();
+        var report = output.ToString();
         Assert.True(report.IndexOf("Plain", StringComparison.Ordinal) < report.IndexOf("Known", StringComparison.Ordinal));
         Assert.True(report.IndexOf("Known", StringComparison.Ordinal) < report.IndexOf("Mystery", StringComparison.Ordinal));
         Assert.True(report.IndexOf("Mystery", StringComparison.Ordinal) < report.IndexOf("Other", StringComparison.Ordinal));
@@ -332,7 +332,7 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void PicksSmallestCoberturaXmlWhenSeveralExist()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
         File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
             namespace Demo;
@@ -347,9 +347,9 @@ public sealed class CliApplicationTest : IDisposable
         using var err = new StringWriter();
         var coverageRunner = new CoverageRunner(new FakeExecutor((_, _) =>
         {
-            foreach (string run in ResultRuns)
+            foreach (var run in _resultRuns)
             {
-                string dir = Path.Combine(_tempDir, "TestResults", run);
+                var dir = Path.Combine(_tempDir, "TestResults", run);
                 Directory.CreateDirectory(dir);
                 File.WriteAllText(Path.Combine(dir, "coverage.cobertura.xml"), """
                     <coverage>
@@ -375,7 +375,7 @@ public sealed class CliApplicationTest : IDisposable
             return 0;
         }));
 
-        int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
             .Execute([Path.Combine("src", "Demo", "Sample.cs")]);
 
         Assert.Equal(0, exit);
@@ -386,7 +386,7 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void ModuleRootForAcceptsDirectoryAndOutsidePaths()
     {
-        string moduleRoot = Path.Combine(_tempDir, "tools", "m");
+        var moduleRoot = Path.Combine(_tempDir, "tools", "m");
         Directory.CreateDirectory(Path.Combine(moduleRoot, "src"));
         File.WriteAllText(Path.Combine(moduleRoot, "Module.csproj"), "<Project/>");
 
@@ -404,8 +404,8 @@ public sealed class CliApplicationTest : IDisposable
         {
             return;
         }
-        string moduleRoot = Path.Combine(_tempDir, "tools", "locked");
-        string source = Path.Combine(moduleRoot, "src", "Sample.cs");
+        var moduleRoot = Path.Combine(_tempDir, "tools", "locked");
+        var source = Path.Combine(moduleRoot, "src", "Sample.cs");
         Directory.CreateDirectory(Path.GetDirectoryName(source)!);
         File.WriteAllText(source, "class Sample {}");
         // Write-only: listing the directory (as HasCsproj does) fails.
@@ -438,11 +438,11 @@ public sealed class CliApplicationTest : IDisposable
         Run("git config user.email test@example.com", _tempDir);
         Run("git config user.name test", _tempDir);
 
-        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
-        string changed = Path.Combine(sourceRoot, "Sample.cs");
+        var changed = Path.Combine(sourceRoot, "Sample.cs");
         await File.WriteAllTextAsync(changed, "class Sample {}\n");
-        string otherDir = Path.Combine(_tempDir, "tests");
+        var otherDir = Path.Combine(_tempDir, "tests");
         Directory.CreateDirectory(otherDir);
         await File.WriteAllTextAsync(Path.Combine(otherDir, "Other.cs"), "class Other {}\n");
         Run("git add .", _tempDir);
@@ -452,7 +452,7 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = await new CliApplication(_tempDir, output, err, NoopCoverage).ExecuteAsync(["--changed"]);
+        var exit = await new CliApplication(_tempDir, output, err, _noopCoverage).ExecuteAsync(["--changed"]);
 
         Assert.Equal(0, exit);
         Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
@@ -464,8 +464,8 @@ public sealed class CliApplicationTest : IDisposable
     {
         // The scored module sorts first ("aaa" < "bbb"), so the top-level
         // sort compares (scored, null): the only order reaching every arm.
-        string moduleA = Path.Combine(_tempDir, "aaa");
-        string srcA = Path.Combine(moduleA, "src");
+        var moduleA = Path.Combine(_tempDir, "aaa");
+        var srcA = Path.Combine(moduleA, "src");
         Directory.CreateDirectory(srcA);
         File.WriteAllText(Path.Combine(moduleA, "A.csproj"), "<Project/>");
         File.WriteAllText(Path.Combine(srcA, "Known.cs"), """
@@ -476,8 +476,8 @@ public sealed class CliApplicationTest : IDisposable
                 }
             }
             """);
-        string moduleB = Path.Combine(_tempDir, "bbb");
-        string srcB = Path.Combine(moduleB, "src");
+        var moduleB = Path.Combine(_tempDir, "bbb");
+        var srcB = Path.Combine(moduleB, "src");
         Directory.CreateDirectory(srcB);
         File.WriteAllText(Path.Combine(moduleB, "B.csproj"), "<Project/>");
         File.WriteAllText(Path.Combine(srcB, "Mystery.cs"), """
@@ -494,7 +494,7 @@ public sealed class CliApplicationTest : IDisposable
         {
             if (directory == moduleA)
             {
-                string dir = Path.Combine(moduleA, "TestResults", "run1");
+                var dir = Path.Combine(moduleA, "TestResults", "run1");
                 Directory.CreateDirectory(dir);
                 File.WriteAllText(Path.Combine(dir, "coverage.cobertura.xml"), """
                     <coverage>
@@ -520,11 +520,11 @@ public sealed class CliApplicationTest : IDisposable
             return 0;
         }));
 
-        int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
             .Execute([Path.Combine("aaa", "src", "Known.cs"), Path.Combine("bbb", "src", "Mystery.cs")]);
 
         Assert.Equal(0, exit);
-        string report = output.ToString();
+        var report = output.ToString();
         Assert.True(report.IndexOf("Alpha", StringComparison.Ordinal) < report.IndexOf("Other", StringComparison.Ordinal));
         Assert.Contains("Warning: Cobertura XML not found", err.ToString(), StringComparison.Ordinal);
     }
@@ -542,9 +542,9 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void CustomThresholdGatesExitCodeAndMessage()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
-        string source = Path.Combine(sourceRoot, "Sample.cs");
+        var source = Path.Combine(sourceRoot, "Sample.cs");
         File.WriteAllText(source, """
             namespace Demo;
 
@@ -564,7 +564,7 @@ public sealed class CliApplicationTest : IDisposable
                 }
             }
             """);
-        string resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
+        var resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
         var coverageRunner = new CoverageRunner(new FakeExecutor((_, _) =>
         {
             Directory.CreateDirectory(resultsDir);
@@ -590,12 +590,12 @@ public sealed class CliApplicationTest : IDisposable
                 """);
             return 0;
         }));
-        string rel = Path.Combine("src", "Demo", "Sample.cs");
+        var rel = Path.Combine("src", "Demo", "Sample.cs");
 
         using (var output = new StringWriter())
         using (var err = new StringWriter())
         {
-            int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+            var exit = new CliApplication(_tempDir, output, err, coverageRunner)
                 .Execute([rel, "--threshold", "1000"]);
             Assert.Equal(0, exit);
             Assert.DoesNotContain("CRAP threshold exceeded", err.ToString(), StringComparison.Ordinal);
@@ -604,7 +604,7 @@ public sealed class CliApplicationTest : IDisposable
         using (var output = new StringWriter())
         using (var err = new StringWriter())
         {
-            int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+            var exit = new CliApplication(_tempDir, output, err, coverageRunner)
                 .Execute([rel, "--threshold=1.5"]);
             Assert.Equal(2, exit);
             Assert.Contains("> 1.5", err.ToString(), StringComparison.Ordinal);
@@ -616,17 +616,17 @@ public sealed class CliApplicationTest : IDisposable
     {
         using var output = new StringWriter();
         using var err = new StringWriter();
-        var app = new CliApplication(_tempDir, output, err, NoopCoverage);
-        string root = Path.GetFullPath(_tempDir);
+        var app = new CliApplication(_tempDir, output, err, _noopCoverage);
+        var root = Path.GetFullPath(_tempDir);
 
         Assert.Equal(root, app.ResolveRoot(null));
         Assert.Equal(root, app.ResolveRoot("  "));
 
-        string sub = Path.Combine(_tempDir, "sub");
+        var sub = Path.Combine(_tempDir, "sub");
         Directory.CreateDirectory(sub);
         Assert.Equal(Path.GetFullPath(sub), app.ResolveRoot("sub"));
 
-        string file = Path.Combine(sub, "App.sln");
+        var file = Path.Combine(sub, "App.sln");
         File.WriteAllText(file, "");
         Assert.Equal(Path.GetFullPath(sub), app.ResolveRoot(Path.Combine("sub", "App.sln")));
         Assert.Equal(Path.GetFullPath(sub), app.ResolveRoot(file));
@@ -635,7 +635,7 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void OutputFlagWritesReportFileMatchingStdout()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
         File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
             namespace Demo;
@@ -649,11 +649,11 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
             .Execute([Path.Combine("src", "Demo", "Sample.cs"), "--output", "report.txt"]);
 
         Assert.Equal(0, exit);
-        string file = Path.Combine(_tempDir, "report.txt");
+        var file = Path.Combine(_tempDir, "report.txt");
         Assert.True(File.Exists(file));
         Assert.Equal(output.ToString(), File.ReadAllText(file));
     }
@@ -661,7 +661,7 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void JsonFormatProducesJsonArray()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
         File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
             namespace Demo;
@@ -675,11 +675,11 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
             .Execute([Path.Combine("src", "Demo", "Sample.cs"), "--format", "json"]);
 
         Assert.Equal(0, exit);
-        string report = output.ToString();
+        var report = output.ToString();
         Assert.StartsWith("[\n", report, StringComparison.Ordinal);
         Assert.Contains("\"method\": \"Alpha\"", report, StringComparison.Ordinal);
     }
@@ -687,7 +687,7 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void CsvFormatProducesHeaderRow()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
         File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
             namespace Demo;
@@ -701,11 +701,11 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
             .Execute([Path.Combine("src", "Demo", "Sample.cs"), "--format=csv"]);
 
         Assert.Equal(0, exit);
-        string report = output.ToString();
+        var report = output.ToString();
         Assert.StartsWith("method,class,cc,coverage,crap\n", report, StringComparison.Ordinal);
         Assert.Contains("Alpha", report, StringComparison.Ordinal);
     }
@@ -728,9 +728,9 @@ public sealed class CliApplicationTest : IDisposable
 
     private string WriteTwoMethodSample()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
-        string source = Path.Combine(sourceRoot, "Sample.cs");
+        var source = Path.Combine(sourceRoot, "Sample.cs");
         File.WriteAllText(source, TwoMethodSource);
         return Path.Combine("src", "Demo", "Sample.cs");
     }
@@ -738,15 +738,15 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void MinCcFiltersLowComplexityMethods()
     {
-        string rel = WriteTwoMethodSample();
+        var rel = WriteTwoMethodSample();
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
             .Execute([rel, "--min-cc", "2"]);
 
         Assert.Equal(0, exit);
-        string report = output.ToString();
+        var report = output.ToString();
         Assert.Contains("Branchy", report, StringComparison.Ordinal);
         Assert.DoesNotContain("Simple", report, StringComparison.Ordinal);
     }
@@ -754,10 +754,10 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void TopKeepsOnlyNWorstMethods()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
         File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), TwoMethodSource);
-        string resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
+        var resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
         var coverageRunner = new CoverageRunner(new FakeExecutor((_, _) =>
         {
             Directory.CreateDirectory(resultsDir);
@@ -789,15 +789,15 @@ public sealed class CliApplicationTest : IDisposable
                 """);
             return 0;
         }));
-        string rel = Path.Combine("src", "Demo", "Sample.cs");
+        var rel = Path.Combine("src", "Demo", "Sample.cs");
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
             .Execute([rel, "--top", "1"]);
 
         Assert.Equal(0, exit);
-        string report = output.ToString();
+        var report = output.ToString();
         Assert.Contains("Branchy", report, StringComparison.Ordinal);
         Assert.DoesNotContain("Simple", report, StringComparison.Ordinal);
     }
@@ -805,8 +805,8 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void NoCoverageSkipsCoverageRunner()
     {
-        string rel = WriteTwoMethodSample();
-        int calls = 0;
+        var rel = WriteTwoMethodSample();
+        var calls = 0;
         var countingRunner = new CoverageRunner(new FakeExecutor((_, _) =>
         {
             calls++;
@@ -815,7 +815,7 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, countingRunner)
+        var exit = new CliApplication(_tempDir, output, err, countingRunner)
             .Execute([rel, "--no-coverage"]);
 
         Assert.Equal(0, exit);
@@ -829,7 +829,7 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
             .Execute(["--version"]);
 
         Assert.Equal(0, exit);
@@ -842,7 +842,7 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
             .Execute(["--bogus"]);
 
         Assert.Equal(1, exit);
@@ -852,9 +852,9 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void TestTargetForReturnsSingleSolution()
     {
-        string sln = Path.Combine(_tempDir, "App.sln");
+        var sln = Path.Combine(_tempDir, "App.sln");
         File.WriteAllText(sln, "");
-        string moduleRoot = Path.Combine(_tempDir, "src", "Demo");
+        var moduleRoot = Path.Combine(_tempDir, "src", "Demo");
 
         Assert.Equal(sln, CliApplication.TestTargetFor(_tempDir, moduleRoot));
     }
@@ -862,7 +862,7 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void TestTargetForReturnsSingleSlnx()
     {
-        string slnx = Path.Combine(_tempDir, "App.slnx");
+        var slnx = Path.Combine(_tempDir, "App.slnx");
         File.WriteAllText(slnx, "");
 
         Assert.Equal(slnx, CliApplication.TestTargetFor(_tempDir, Path.Combine(_tempDir, "src")));
@@ -871,7 +871,7 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void TestTargetForFallsBackWithoutSolution()
     {
-        string moduleRoot = Path.Combine(_tempDir, "src", "Demo");
+        var moduleRoot = Path.Combine(_tempDir, "src", "Demo");
 
         Assert.Equal(moduleRoot, CliApplication.TestTargetFor(_tempDir, moduleRoot));
     }
@@ -881,7 +881,7 @@ public sealed class CliApplicationTest : IDisposable
     {
         File.WriteAllText(Path.Combine(_tempDir, "A.sln"), "");
         File.WriteAllText(Path.Combine(_tempDir, "B.sln"), "");
-        string moduleRoot = Path.Combine(_tempDir, "src");
+        var moduleRoot = Path.Combine(_tempDir, "src");
 
         Assert.Equal(moduleRoot, CliApplication.TestTargetFor(_tempDir, moduleRoot));
     }
@@ -891,7 +891,7 @@ public sealed class CliApplicationTest : IDisposable
     {
         File.WriteAllText(Path.Combine(_tempDir, "A.sln"), "");
         File.WriteAllText(Path.Combine(_tempDir, "B.slnx"), "");
-        string moduleRoot = Path.Combine(_tempDir, "src");
+        var moduleRoot = Path.Combine(_tempDir, "src");
 
         Assert.Equal(moduleRoot, CliApplication.TestTargetFor(_tempDir, moduleRoot));
     }
@@ -901,7 +901,7 @@ public sealed class CliApplicationTest : IDisposable
     {
         Directory.CreateDirectory(Path.Combine(_tempDir, "nested"));
         File.WriteAllText(Path.Combine(_tempDir, "nested", "App.sln"), "");
-        string moduleRoot = Path.Combine(_tempDir, "src");
+        var moduleRoot = Path.Combine(_tempDir, "src");
 
         Assert.Equal(moduleRoot, CliApplication.TestTargetFor(_tempDir, moduleRoot));
     }
@@ -909,7 +909,7 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void TestTargetForMatchesSolutionCaseInsensitively()
     {
-        string sln = Path.Combine(_tempDir, "APP.SLN");
+        var sln = Path.Combine(_tempDir, "APP.SLN");
         File.WriteAllText(sln, "");
 
         Assert.Equal(sln, CliApplication.TestTargetFor(_tempDir, Path.Combine(_tempDir, "src")));
@@ -918,8 +918,8 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void TestTargetForFallsBackWhenWorkspaceMissing()
     {
-        string missing = Path.Combine(_tempDir, "does-not-exist");
-        string moduleRoot = Path.Combine(_tempDir, "src");
+        var missing = Path.Combine(_tempDir, "does-not-exist");
+        var moduleRoot = Path.Combine(_tempDir, "src");
 
         Assert.Equal(moduleRoot, CliApplication.TestTargetFor(missing, moduleRoot));
     }
@@ -927,9 +927,9 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void SolutionTargetedRunUsesSolutionArgvWithModuleTestResults()
     {
-        string root = Path.GetFullPath(_tempDir);
+        var root = Path.GetFullPath(_tempDir);
         File.WriteAllText(Path.Combine(root, "App.sln"), "");
-        string sourceRoot = Path.Combine(root, "src", "Demo");
+        var sourceRoot = Path.Combine(root, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
         File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
             namespace Demo;
@@ -946,7 +946,7 @@ public sealed class CliApplicationTest : IDisposable
         {
             commands.Add(command);
             directories.Add(directory);
-            string dir = Path.Combine(root, "TestResults", "run1");
+            var dir = Path.Combine(root, "TestResults", "run1");
             Directory.CreateDirectory(dir);
             File.WriteAllText(Path.Combine(dir, "coverage.cobertura.xml"), """
                 <coverage>
@@ -973,7 +973,7 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, coverageRunner)
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
             .Execute([Path.Combine("src", "Demo", "Sample.cs")]);
 
         Assert.Equal(0, exit);
@@ -987,8 +987,8 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void RunWithoutSolutionKeepsModuleRootTarget()
     {
-        string root = Path.GetFullPath(_tempDir);
-        string rel = WriteTwoMethodSample();
+        var root = Path.GetFullPath(_tempDir);
+        var rel = WriteTwoMethodSample();
         var commands = new List<IReadOnlyList<string>>();
         var coverageRunner = new CoverageRunner(new FakeExecutor((command, _) =>
         {
@@ -998,7 +998,7 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, coverageRunner).Execute([rel]);
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner).Execute([rel]);
 
         Assert.Equal(0, exit);
         Assert.Single(commands);
@@ -1008,15 +1008,15 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void OutputFlagCreatesNestedDirsMatchingStdout()
     {
-        string rel = WriteTwoMethodSample();
+        var rel = WriteTwoMethodSample();
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
             .Execute([rel, "--output", Path.Combine("reports", "nested", "report.txt")]);
 
         Assert.Equal(0, exit);
-        string file = Path.Combine(_tempDir, "reports", "nested", "report.txt");
+        var file = Path.Combine(_tempDir, "reports", "nested", "report.txt");
         Assert.True(File.Exists(file));
         Assert.Equal(output.ToString(), File.ReadAllText(file));
     }
@@ -1027,7 +1027,7 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
             .Execute([Path.Combine("missing", "Nope.cs")]);
 
         Assert.Equal(0, exit);
@@ -1039,7 +1039,7 @@ public sealed class CliApplicationTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = new CliApplication(_tempDir, output, err, NoopCoverage)
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
             .Execute(["--changed", "--path", "does-not-exist"]);
 
         Assert.Equal(1, exit);
@@ -1056,7 +1056,7 @@ public sealed class CliApplicationTest : IDisposable
             UseShellExecute = false,
         };
         using var process = System.Diagnostics.Process.Start(startInfo)!;
-        string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+        var output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
         process.WaitForExit();
         if (process.ExitCode != 0)
         {

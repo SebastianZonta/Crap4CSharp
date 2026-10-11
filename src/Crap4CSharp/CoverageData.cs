@@ -4,13 +4,13 @@ internal readonly record struct CoverageData(int MissedInstructions, int Covered
 {
     public double CoveragePercent()
     {
-        int total = MissedInstructions + CoveredInstructions;
+        var total = MissedInstructions + CoveredInstructions;
         if (total == 0)
         {
             return 0.0;
         }
 
-        return (CoveredInstructions * 100.0) / total;
+        return CoveredInstructions * 100.0 / total;
     }
 }
 

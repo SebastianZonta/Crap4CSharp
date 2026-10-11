@@ -9,18 +9,18 @@ internal static class CrapAnalyzer
         var coverageIndex = BuildMethodIndex(coverageMap);
         List<MethodMetrics> metrics = [];
 
-        foreach (string file in files)
+        foreach (var file in files)
         {
             if (!File.Exists(file))
             {
                 continue;
             }
-            string source = File.ReadAllText(file);
-            string className = ClassNameFromSource(file, source);
-            foreach (MethodDescriptor method in CSharpMethodParser.Parse(source))
+            var source = File.ReadAllText(file);
+            var className = ClassNameFromSource(file, source);
+            foreach (var method in CSharpMethodParser.Parse(source))
             {
-                double? coverage = LookupIndexed(coverageIndex, className, method.Name, method.StartLine);
-                double? crap = CrapScore.Calculate(method.Complexity, coverage);
+                var coverage = LookupIndexed(coverageIndex, className, method.Name, method.StartLine);
+                var crap = CrapScore.Calculate(method.Complexity, coverage);
                 metrics.Add(new MethodMetrics(method.Name, className, method.Complexity, coverage, crap));
             }
         }
@@ -37,7 +37,7 @@ internal static class CrapAnalyzer
         {
             simpleName = simpleName[..^ext.Length];
         }
-        ReadOnlySpan<char> ns = ScanNamespace(source);
+        var ns = ScanNamespace(source);
         if (ns.IsEmpty)
         {
             return new string(simpleName);
@@ -50,16 +50,16 @@ internal static class CrapAnalyzer
     // whitespace, match the `namespace` keyword, then the dotted identifier.
     private static ReadOnlySpan<char> ScanNamespace(ReadOnlySpan<char> source)
     {
-        int i = 0;
+        var i = 0;
         while (i < source.Length)
         {
-            int lineEnd = source.Slice(i).IndexOf('\n');
-            ReadOnlySpan<char> line = lineEnd < 0 ? source.Slice(i) : source.Slice(i, lineEnd);
+            var lineEnd = source.Slice(i).IndexOf('\n');
+            var line = lineEnd < 0 ? source.Slice(i) : source.Slice(i, lineEnd);
             if (line.Length > 0 && line[line.Length - 1] == '\r')
             {
                 line = line.Slice(0, line.Length - 1);
             }
-            int pos = 0;
+            var pos = 0;
             while (pos < line.Length && char.IsWhiteSpace(line[pos]))
             {
                 pos++;
@@ -74,7 +74,7 @@ internal static class CrapAnalyzer
                 {
                     pos++;
                 }
-                int nameStart = pos;
+                var nameStart = pos;
                 while (pos < line.Length && (char.IsLetterOrDigit(line[pos]) || line[pos] == '_' || line[pos] == '.'))
                 {
                     pos++;
@@ -82,7 +82,7 @@ internal static class CrapAnalyzer
                 if (pos > nameStart && line[nameStart] != '.' && line[pos - 1] != '.'
                     && (line[nameStart] == '_' || char.IsLetter(line[nameStart])))
                 {
-                    int end = pos;
+                    var end = pos;
                     while (end < line.Length && char.IsWhiteSpace(line[end]))
                     {
                         end++;
@@ -106,13 +106,13 @@ internal static class CrapAnalyzer
         IDictionary<string, CoverageData> coverageMap,
         string className, string methodName, int line)
     {
-        double? exact = ExactCoverage(coverageMap, className, methodName, line);
+        var exact = ExactCoverage(coverageMap, className, methodName, line);
         if (exact is not null)
         {
             return exact;
         }
 
-        CoverageData? nearest = NearestCoverage(coverageMap, className, methodName, line);
+        var nearest = NearestCoverage(coverageMap, className, methodName, line);
         return nearest?.CoveragePercent();
     }
 
@@ -120,8 +120,8 @@ internal static class CrapAnalyzer
         IDictionary<string, CoverageData> coverageMap,
         string className, string methodName, int line)
     {
-        string key = className.CoverageKey(methodName, line);
-        if (!coverageMap.TryGetValue(key, out CoverageData exact))
+        var key = className.CoverageKey(methodName, line);
+        if (!coverageMap.TryGetValue(key, out var exact))
         {
             return null;
         }
@@ -132,16 +132,16 @@ internal static class CrapAnalyzer
         IDictionary<string, CoverageData> coverageMap,
         string className, string methodName, int line)
     {
-        string prefix = className.MethodPrefix(methodName);
+        var prefix = className.MethodPrefix(methodName);
         CoverageData? nearest = null;
-        int nearestDistance = int.MaxValue;
+        var nearestDistance = int.MaxValue;
         foreach (var entry in coverageMap)
         {
             if (!entry.Key.StartsWith(prefix, StringComparison.Ordinal))
             {
                 continue;
             }
-            int distance = Math.Abs(ParseTrailingLine(entry.Key) - line);
+            var distance = Math.Abs(ParseTrailingLine(entry.Key) - line);
             if (distance < nearestDistance)
             {
                 nearestDistance = distance;
@@ -155,18 +155,18 @@ internal static class CrapAnalyzer
 
     public static int ParseTrailingLine(this ReadOnlySpan<char> span)
     {
-        int separator = span.LastIndexOf(ToolConstants.CoverageKeyLineSeparator);
+        var separator = span.LastIndexOf(ToolConstants.CoverageKeyLineSeparator);
         if (separator < 0)
         {
             return int.MaxValue;
         }
-        ReadOnlySpan<char> linePart = span[(separator + 1)..];
+        var linePart = span[(separator + 1)..];
         if (linePart.Length == 0)
         {
             return int.MaxValue;
         }
         if (int.TryParse(linePart, System.Globalization.NumberStyles.Integer,
-                System.Globalization.CultureInfo.InvariantCulture, out int line))
+                System.Globalization.CultureInfo.InvariantCulture, out var line))
         {
             return line;
         }
@@ -180,14 +180,14 @@ internal static class CrapAnalyzer
         foreach (var entry in coverageMap)
         {
             ReadOnlySpan<char> key = entry.Key;
-            int separator = key.LastIndexOf(ToolConstants.CoverageKeyLineSeparator);
+            var separator = key.LastIndexOf(ToolConstants.CoverageKeyLineSeparator);
             if (separator < 0)
             {
                 continue;
             }
             string methodKey = new(key[..separator]);
-            int line = ParseTrailingLine(key);
-            if (!index.TryGetValue(methodKey, out List<(int Line, CoverageData Data)>? entries))
+            var line = ParseTrailingLine(key);
+            if (!index.TryGetValue(methodKey, out var entries))
             {
                 entries = [];
                 index[methodKey] = entries;
@@ -201,27 +201,27 @@ internal static class CrapAnalyzer
         Dictionary<string, List<(int Line, CoverageData Data)>> index,
         string className, string methodName, int line)
     {
-        string methodKey = className.MethodKey(methodName);
-        if (!index.TryGetValue(methodKey, out List<(int Line, CoverageData Data)>? entries))
+        var methodKey = className.MethodKey(methodName);
+        if (!index.TryGetValue(methodKey, out var entries))
         {
             return null;
         }
-        foreach (var entry in entries)
+        foreach (var (Line, Data) in entries)
         {
-            if (entry.Line == line)
+            if (Line == line)
             {
-                return entry.Data.CoveragePercent();
+                return Data.CoveragePercent();
             }
         }
         CoverageData? nearest = null;
-        int nearestDistance = int.MaxValue;
-        foreach (var entry in entries)
+        var nearestDistance = int.MaxValue;
+        foreach (var (Line, Data) in entries)
         {
-            int distance = Math.Abs(entry.Line - line);
+            var distance = Math.Abs(Line - line);
             if (distance < nearestDistance)
             {
                 nearestDistance = distance;
-                nearest = entry.Data;
+                nearest = Data;
             }
         }
         return nearest?.CoveragePercent();

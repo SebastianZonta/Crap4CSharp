@@ -8,29 +8,29 @@ internal static class CliArgumentsParser
     {
         string? projectPath = null;
         string? outputPath = null;
-        double threshold = DefaultThreshold;
-        string format = "text";
+        var threshold = DefaultThreshold;
+        var format = "text";
         int? top = null;
-        int minComplexity = 1;
-        bool noCoverage = false;
-        bool changed = false;
-        bool help = false;
-        bool version = false;
+        var minComplexity = 1;
+        var noCoverage = false;
+        var changed = false;
+        var help = false;
+        var version = false;
         List<string>? values = null;
 
-        for (int i = 0; i < args.Length; i++)
+        for (var i = 0; i < args.Length; i++)
         {
-            ReadOnlySpan<char> arg = args[i].AsSpan();
+            var arg = args[i].AsSpan();
             if (arg.SequenceEqual("--"))
             {
-                for (int j = i + 1; j < args.Length; j++)
+                for (var j = i + 1; j < args.Length; j++)
                 {
                     values ??= [];
                     values.Add(args[j]);
                 }
                 break;
             }
-            if (TrySplitFlagValue(arg, out ReadOnlySpan<char> name, out ReadOnlySpan<char> inlineValue, out bool hasInline))
+            if (TrySplitFlagValue(arg, out var name, out var inlineValue, out var hasInline))
             {
                 if (IsFlag(name, "--help") || IsFlag(name, "-h") || IsFlag(name, "-?"))
                 {
@@ -161,7 +161,7 @@ internal static class CliArgumentsParser
     private static bool TrySplitFlagValue(
         ReadOnlySpan<char> arg, out ReadOnlySpan<char> name, out ReadOnlySpan<char> value, out bool hasValue)
     {
-        int eq = arg.IndexOf('=');
+        var eq = arg.IndexOf('=');
         if (eq > 0 && arg[0] == '-')
         {
             name = arg[..eq];
@@ -229,7 +229,7 @@ internal static class CliArgumentsParser
                 raw,
                 System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture,
-                out double value) || double.IsNaN(value) || double.IsInfinity(value) || value <= 0)
+                out var value) || double.IsNaN(value) || double.IsInfinity(value) || value <= 0)
         {
             throw new InvalidOperationException($"Invalid --threshold '{new string(raw)}'. Expected a positive number (default {DefaultThreshold:F1}).");
         }
@@ -238,7 +238,7 @@ internal static class CliArgumentsParser
 
     private static string ParseFormat(ReadOnlySpan<char> raw)
     {
-        ReadOnlySpan<char> normalized = raw.Trim();
+        var normalized = raw.Trim();
         if (normalized.Equals("text", StringComparison.OrdinalIgnoreCase))
         {
             return "text";
@@ -260,7 +260,7 @@ internal static class CliArgumentsParser
                 raw,
                 System.Globalization.NumberStyles.Integer,
                 System.Globalization.CultureInfo.InvariantCulture,
-                out int value) || value <= 0)
+                out var value) || value <= 0)
         {
             throw new InvalidOperationException($"Invalid {new string(name)} '{new string(raw)}'. Expected a positive integer.");
         }

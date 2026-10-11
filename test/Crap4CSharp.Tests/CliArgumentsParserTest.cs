@@ -2,23 +2,23 @@ namespace Crap4CSharp.Tests;
 
 public class CliArgumentsParserTest
 {
-    private static readonly string[] ChangedFlag = ["--changed"];
-    private static readonly string[] TwoFiles = ["src/demo/A.cs", "src/demo/B.cs"];
-    private static readonly string[] HelpFlag = ["--help"];
-    private static readonly string[] ChangedPlusFile = ["--changed", "src/demo/A.cs"];
-    private static readonly string[] SingleFile = ["src/demo/A.cs"];
+    private static readonly string[] _changedFlag = ["--changed"];
+    private static readonly string[] _twoFiles = ["src/demo/A.cs", "src/demo/B.cs"];
+    private static readonly string[] _helpFlag = ["--help"];
+    private static readonly string[] _changedPlusFile = ["--changed", "src/demo/A.cs"];
+    private static readonly string[] _singleFile = ["src/demo/A.cs"];
 
     [Fact]
     public void NoArgsMeansAllSrcFiles()
     {
-        CliArguments args = CliArgumentsParser.Parse(Array.Empty<string>());
+        var args = CliArgumentsParser.Parse(Array.Empty<string>());
         Assert.Equal(CliMode.AllSrc, args.Mode);
     }
 
     [Fact]
     public void DefaultsAreBackwardCompatible()
     {
-        CliArguments args = CliArgumentsParser.Parse(Array.Empty<string>());
+        var args = CliArgumentsParser.Parse(Array.Empty<string>());
         Assert.Null(args.ProjectPath);
         Assert.Null(args.OutputPath);
         Assert.Equal(8.0, args.Threshold);
@@ -32,16 +32,16 @@ public class CliArgumentsParserTest
     [Fact]
     public void ChangedFlagMeansChangedSrcFiles()
     {
-        CliArguments args = CliArgumentsParser.Parse(ChangedFlag);
+        var args = CliArgumentsParser.Parse(_changedFlag);
         Assert.Equal(CliMode.ChangedSrc, args.Mode);
     }
 
     [Fact]
     public void FileNamesMeanExplicitFiles()
     {
-        CliArguments args = CliArgumentsParser.Parse(TwoFiles);
+        var args = CliArgumentsParser.Parse(_twoFiles);
         Assert.Equal(CliMode.ExplicitFiles, args.Mode);
-        Assert.Equal(TwoFiles, args.FileArgs);
+        Assert.Equal(_twoFiles, args.FileArgs);
     }
 
     [Fact]
@@ -54,28 +54,28 @@ public class CliArgumentsParserTest
     [Fact]
     public void HelpPrintsUsageMode()
     {
-        CliArguments args = CliArgumentsParser.Parse(HelpFlag);
+        var args = CliArgumentsParser.Parse(_helpFlag);
         Assert.Equal(CliMode.Help, args.Mode);
     }
 
     [Fact]
     public void ShortHelpMeansHelpMode()
     {
-        CliArguments args = CliArgumentsParser.Parse(["-h"]);
+        var args = CliArgumentsParser.Parse(["-h"]);
         Assert.Equal(CliMode.Help, args.Mode);
     }
 
     [Fact]
     public void QuestionMarkMeansHelpMode()
     {
-        CliArguments args = CliArgumentsParser.Parse(["-?"]);
+        var args = CliArgumentsParser.Parse(["-?"]);
         Assert.Equal(CliMode.Help, args.Mode);
     }
 
     [Fact]
     public void VersionFlagMeansVersionMode()
     {
-        CliArguments args = CliArgumentsParser.Parse(["--version"]);
+        var args = CliArgumentsParser.Parse(["--version"]);
         Assert.Equal(CliMode.Version, args.Mode);
     }
 
@@ -83,16 +83,16 @@ public class CliArgumentsParserTest
     public void ChangedCannotBeCombinedWithFiles()
     {
         Assert.Throws<InvalidOperationException>(
-            () => CliArgumentsParser.Parse(ChangedPlusFile));
+            () => CliArgumentsParser.Parse(_changedPlusFile));
     }
 
     [Fact]
     public void PlainFilesDoNotTriggerChangedMode()
     {
-        CliArguments args = CliArgumentsParser.Parse(SingleFile);
+        var args = CliArgumentsParser.Parse(_singleFile);
 
         Assert.Equal(CliMode.ExplicitFiles, args.Mode);
-        Assert.Equal(SingleFile, args.FileArgs);
+        Assert.Equal(_singleFile, args.FileArgs);
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public class CliArgumentsParserTest
     [Fact]
     public void PathFlagSpaceForm()
     {
-        CliArguments args = CliArgumentsParser.Parse(["--path", "some/dir"]);
+        var args = CliArgumentsParser.Parse(["--path", "some/dir"]);
         Assert.Equal("some/dir", args.ProjectPath);
         Assert.Equal(CliMode.AllSrc, args.Mode);
     }
@@ -120,7 +120,7 @@ public class CliArgumentsParserTest
     [Fact]
     public void PathFlagEqualsForm()
     {
-        CliArguments args = CliArgumentsParser.Parse(["--path=some/dir"]);
+        var args = CliArgumentsParser.Parse(["--path=some/dir"]);
         Assert.Equal("some/dir", args.ProjectPath);
     }
 
@@ -153,7 +153,7 @@ public class CliArgumentsParserTest
     [Fact]
     public void TopAndMinCcFlags()
     {
-        CliArguments args = CliArgumentsParser.Parse(["--top", "5", "--min-cc", "2"]);
+        var args = CliArgumentsParser.Parse(["--top", "5", "--min-cc", "2"]);
         Assert.Equal(5, args.Top);
         Assert.Equal(2, args.MinComplexity);
         Assert.Equal(5, CliArgumentsParser.Parse(["--top=5"]).Top);
@@ -170,18 +170,18 @@ public class CliArgumentsParserTest
     [Fact]
     public void FlagsCombineWithExplicitFiles()
     {
-        CliArguments args = CliArgumentsParser.Parse(
+        var args = CliArgumentsParser.Parse(
             ["--threshold=5", "--format=json", "src/demo/A.cs"]);
         Assert.Equal(CliMode.ExplicitFiles, args.Mode);
         Assert.Equal(5.0, args.Threshold);
         Assert.Equal("json", args.Format);
-        Assert.Equal(SingleFile, args.FileArgs);
+        Assert.Equal(_singleFile, args.FileArgs);
     }
 
     [Fact]
     public void FlagsCombineWithChangedMode()
     {
-        CliArguments args = CliArgumentsParser.Parse(["--changed", "--threshold=5", "--no-coverage"]);
+        var args = CliArgumentsParser.Parse(["--changed", "--threshold=5", "--no-coverage"]);
         Assert.Equal(CliMode.ChangedSrc, args.Mode);
         Assert.Equal(5.0, args.Threshold);
         Assert.True(args.NoCoverage);
@@ -190,7 +190,7 @@ public class CliArgumentsParserTest
     [Fact]
     public void DoubleDashSentinelTreatsRestAsFiles()
     {
-        CliArguments args = CliArgumentsParser.Parse(["--", "--help", "--bogus"]);
+        var args = CliArgumentsParser.Parse(["--", "--help", "--bogus"]);
         Assert.Equal(CliMode.ExplicitFiles, args.Mode);
         Assert.Equal(["--help", "--bogus"], args.FileArgs);
     }
@@ -198,7 +198,7 @@ public class CliArgumentsParserTest
     [Fact]
     public void DoubleDashSentinelAfterFlags()
     {
-        CliArguments args = CliArgumentsParser.Parse(["--threshold=5", "--", "--top"]);
+        var args = CliArgumentsParser.Parse(["--threshold=5", "--", "--top"]);
         Assert.Equal(CliMode.ExplicitFiles, args.Mode);
         Assert.Equal(["--top"], args.FileArgs);
         Assert.Equal(5.0, args.Threshold);
@@ -281,7 +281,7 @@ public class CliArgumentsParserTest
     [Fact]
     public void SlashQuestionMarkMeansHelpMode()
     {
-        CliArguments args = CliArgumentsParser.Parse(["/?"]);
+        var args = CliArgumentsParser.Parse(["/?"]);
         Assert.Equal(CliMode.Help, args.Mode);
     }
 
@@ -291,7 +291,7 @@ public class CliArgumentsParserTest
     [InlineData("-?", "--version")]
     public void HelpWinsOverVersion(string first, string second)
     {
-        CliArguments args = CliArgumentsParser.Parse([first, second]);
+        var args = CliArgumentsParser.Parse([first, second]);
         Assert.Equal(CliMode.Help, args.Mode);
     }
 
@@ -308,7 +308,7 @@ public class CliArgumentsParserTest
     [Fact]
     public void LastValueWinsForRepeatedOptions()
     {
-        CliArguments args = CliArgumentsParser.Parse(
+        var args = CliArgumentsParser.Parse(
             ["--threshold=1", "--threshold", "9", "--format=text", "--format=json",
              "--path=a", "--path=b", "--top=1", "--top=3"]);
         Assert.Equal(9.0, args.Threshold);
@@ -322,7 +322,7 @@ public class CliArgumentsParserTest
     [InlineData("--changed")]
     public void DoubleDashTreatsFlagsAsFilenames(string flag)
     {
-        CliArguments args = CliArgumentsParser.Parse(["--", flag]);
+        var args = CliArgumentsParser.Parse(["--", flag]);
         Assert.Equal(CliMode.ExplicitFiles, args.Mode);
         Assert.Equal([flag], args.FileArgs);
     }

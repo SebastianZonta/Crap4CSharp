@@ -32,7 +32,7 @@ public sealed class ProcessCommandExecutorTest : IDisposable
         {
             return;
         }
-        int exit = new ProcessCommandExecutor().Run(["/bin/sh", "-c", "exit 7"], _tempDir);
+        var exit = new ProcessCommandExecutor().Run(["/bin/sh", "-c", "exit 7"], _tempDir);
 
         Assert.Equal(7, exit);
     }
@@ -46,7 +46,7 @@ public sealed class ProcessCommandExecutorTest : IDisposable
         }
         // The -c script contains a space and quotes; via ArgumentList it must
         // arrive as one argv entry, so $0 binds to "7" and the exit code is 7.
-        int exit = new ProcessCommandExecutor().Run(["/bin/sh", "-c", "exit \"$0\"", "7"], _tempDir);
+        var exit = new ProcessCommandExecutor().Run(["/bin/sh", "-c", "exit \"$0\"", "7"], _tempDir);
 
         Assert.Equal(7, exit);
     }
@@ -58,7 +58,7 @@ public sealed class ProcessCommandExecutorTest : IDisposable
         {
             return;
         }
-        int exit = new ProcessCommandExecutor().Run(
+        var exit = new ProcessCommandExecutor().Run(
             ["/bin/sh", "-c", "echo out; echo err >&2; exit 5"], _tempDir);
 
         Assert.Equal(5, exit);
@@ -67,7 +67,7 @@ public sealed class ProcessCommandExecutorTest : IDisposable
     [Fact]
     public async Task MissingWorkingDirectoryThrowsDirectoryNotFound()
     {
-        string missing = Path.Combine(_tempDir, "does-not-exist");
+        var missing = Path.Combine(_tempDir, "does-not-exist");
 
         await Assert.ThrowsAsync<DirectoryNotFoundException>(
             () => new ProcessCommandExecutor().RunAsync(["/bin/sh", "-c", "exit 0"], missing));
@@ -76,7 +76,7 @@ public sealed class ProcessCommandExecutorTest : IDisposable
     [Fact]
     public async Task EmptyCommandThrowsArgumentException()
     {
-        ArgumentException ex = await Assert.ThrowsAsync<ArgumentException>(
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
             () => new ProcessCommandExecutor().RunAsync([], _tempDir));
 
         Assert.Equal("args", ex.ParamName);
@@ -112,7 +112,7 @@ public sealed class ProcessCommandExecutorTest : IDisposable
 
     private static void AssertNoProcessMatching(string pattern)
     {
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         while (true)
         {
             using var pgrep = Process.Start(

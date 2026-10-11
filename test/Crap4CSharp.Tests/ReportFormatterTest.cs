@@ -10,11 +10,11 @@ public sealed class ReportFormatterTest
         var scored = new MethodMetrics("foo", "demo.Sample", 3, 85.0, 4.5);
         var unknown = new MethodMetrics("bar", "demo.Sample", 2, null, null);
 
-        string report = ReportFormatter.Format([scored, unknown]);
+        var report = ReportFormatter.Format([scored, unknown]);
 
-        string header = string.Format(CultureInfo.InvariantCulture, "{0,-30} {1,-35} {2,4} {3,7} {4,8}", "Method", "Class", "CC", "Cov%", "CRAP");
-        string separator = new string('-', header.Length);
-        string expected =
+        var header = string.Format(CultureInfo.InvariantCulture, "{0,-30} {1,-35} {2,4} {3,7} {4,8}", "Method", "Class", "CC", "Cov%", "CRAP");
+        var separator = new string('-', header.Length);
+        var expected =
             "CRAP Report\n" +
             "===========\n" +
             $"{header}\n" +
@@ -32,7 +32,7 @@ public sealed class ReportFormatterTest
         var unknown = new MethodMetrics("unknown", "demo.Sample", 2, null, null);
         var higherScore = new MethodMetrics("high", "demo.Sample", 5, 10.0, 9.0);
 
-        string report = ReportFormatter.Format([lowerScore, unknown, higherScore]);
+        var report = ReportFormatter.Format([lowerScore, unknown, higherScore]);
 
         Assert.True(report.IndexOf("high", StringComparison.Ordinal) < report.IndexOf("low", StringComparison.Ordinal));
         Assert.True(report.IndexOf("low", StringComparison.Ordinal) < report.IndexOf("unknown", StringComparison.Ordinal));
@@ -45,7 +45,7 @@ public sealed class ReportFormatterTest
         var second = new MethodMetrics("bbb", "demo.Sample", 2, null, null);
         var third = new MethodMetrics("ccc", "demo.Sample", 3, null, null);
 
-        string report = ReportFormatter.Format([first, second, third]);
+        var report = ReportFormatter.Format([first, second, third]);
 
         Assert.Contains("aaa", report, StringComparison.Ordinal);
         Assert.Contains("bbb", report, StringComparison.Ordinal);
@@ -83,7 +83,7 @@ public sealed class ReportFormatterTest
         var scored = new MethodMetrics("foo", "demo.Sample", 3, 85.0, 4.5);
         var unknown = new MethodMetrics("bar", "demo.Sample", 2, null, null);
 
-        string json = ReportFormatter.FormatJson([scored, unknown]);
+        var json = ReportFormatter.FormatJson([scored, unknown]);
 
         Assert.StartsWith("[\n", json, StringComparison.Ordinal);
         Assert.EndsWith("]\n", json, StringComparison.Ordinal);
@@ -103,8 +103,8 @@ public sealed class ReportFormatterTest
         var scored = new MethodMetrics("foo", "demo.Sample", 3, 85.0, 4.5);
         var unknown = new MethodMetrics("bar", "demo.Sample", 2, null, null);
 
-        string csv = ReportFormatter.FormatCsv([scored, unknown]);
-        string[] lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var csv = ReportFormatter.FormatCsv([scored, unknown]);
+        var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
         Assert.Equal("method,class,cc,coverage,crap", lines[0]);
         Assert.Equal(3, lines.Length);
@@ -118,8 +118,8 @@ public sealed class ReportFormatterTest
         var low = new MethodMetrics("low", "demo.Sample", 2, 100.0, 2.0);
         var high = new MethodMetrics("high", "demo.Sample", 5, 10.0, 9.0);
 
-        string json = ReportFormatter.FormatJson([low, high]);
-        string csv = ReportFormatter.FormatCsv([low, high]);
+        var json = ReportFormatter.FormatJson([low, high]);
+        var csv = ReportFormatter.FormatCsv([low, high]);
 
         Assert.True(json.IndexOf("high", StringComparison.Ordinal) < json.IndexOf("low", StringComparison.Ordinal));
         Assert.True(csv.IndexOf("high", StringComparison.Ordinal) < csv.IndexOf("low", StringComparison.Ordinal));

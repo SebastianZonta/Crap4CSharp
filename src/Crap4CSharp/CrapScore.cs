@@ -18,8 +18,8 @@ internal static class CrapScore
 
     internal static double MaxCrap(this IEnumerable<MethodMetrics> metrics)
     {
-        double max = 0.0;
-        foreach (MethodMetrics metric in metrics)
+        var max = 0.0;
+        foreach (var metric in metrics)
         {
             if (metric.CrapScore is not null)
             {
@@ -37,7 +37,7 @@ internal static class CrapScore
         }
 
         double cc = complexity;
-        double uncovered = 1.0 - (coveragePercent.Value / 100.0);
+        var uncovered = 1.0 - (coveragePercent.Value / 100.0);
         return (cc * cc * uncovered * uncovered * uncovered) + cc;
     }
 }

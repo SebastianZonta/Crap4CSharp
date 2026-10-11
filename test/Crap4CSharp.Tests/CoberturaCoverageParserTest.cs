@@ -1,5 +1,3 @@
-using Crap4CSharp;
-
 namespace Crap4CSharp.Tests;
 
 // Mirror of crap4java.JacocoCoverageParserTest adapted to Cobertura XML
@@ -10,7 +8,7 @@ public sealed class CoberturaCoverageParserTest
     [Fact]
     public void ParsesCoverageByClassAndMethod()
     {
-        string path = WriteTempXml("""
+        var path = WriteTempXml("""
             <coverage>
               <packages>
                 <package name="demo">
@@ -46,7 +44,7 @@ public sealed class CoberturaCoverageParserTest
     [Fact]
     public void NormalizesClassNameSeparators()
     {
-        string path = WriteTempXml("""
+        var path = WriteTempXml("""
             <coverage>
               <packages>
                 <package name="demo">
@@ -74,7 +72,7 @@ public sealed class CoberturaCoverageParserTest
     [Fact]
     public void ParsesInvalidHitsAndLineNumbersAsZero()
     {
-        string path = WriteTempXml("""
+        var path = WriteTempXml("""
             <coverage>
               <packages>
                 <package name="demo">
@@ -121,7 +119,7 @@ public sealed class CoberturaCoverageParserTest
     [Fact]
     public void RejectsDoctype()
     {
-        string path = WriteTempXml("""
+        var path = WriteTempXml("""
             <!DOCTYPE coverage PUBLIC "-//Crap4CSharp//DTD Coverage//EN" "coverage.dtd">
             <coverage>
               <packages />
@@ -134,7 +132,7 @@ public sealed class CoberturaCoverageParserTest
     [Fact]
     public void EmptyCoverageReturnsEmptyWithoutThrowing()
     {
-        string path = WriteTempXml("""
+        var path = WriteTempXml("""
             <coverage>
               <packages />
             </coverage>
@@ -146,7 +144,7 @@ public sealed class CoberturaCoverageParserTest
     [Fact]
     public void SkipsMethodsWithoutClassOrNameOrLines()
     {
-        string path = WriteTempXml("""
+        var path = WriteTempXml("""
             <coverage>
               <packages>
                 <package name="demo">
@@ -194,7 +192,7 @@ public sealed class CoberturaCoverageParserTest
 
     private static string WriteTempXml(string xml)
     {
-        string path = Path.Combine(Path.GetTempPath(), "cobertura-" + Guid.NewGuid().ToString("N") + ".xml");
+        var path = Path.Combine(Path.GetTempPath(), "cobertura-" + Guid.NewGuid().ToString("N") + ".xml");
         File.WriteAllText(path, xml);
         return path;
     }

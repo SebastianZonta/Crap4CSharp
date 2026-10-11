@@ -12,14 +12,14 @@ namespace Crap4CSharp;
 // it builds standalone; ticket 10/integration will unify the value type.
 internal static class CoberturaCoverageParser
 {
-    private static readonly IReadOnlyDictionary<string, (int Missed, int Covered)> EmptyMap =
+    private static readonly IReadOnlyDictionary<string, (int Missed, int Covered)> _emptyMap =
         new Dictionary<string, (int Missed, int Covered)>();
 
     public static IReadOnlyDictionary<string, (int Missed, int Covered)> Parse(string? coberturaXmlPath)
     {
         if (string.IsNullOrEmpty(coberturaXmlPath) || !File.Exists(coberturaXmlPath))
         {
-            return EmptyMap;
+            return _emptyMap;
         }
 
         try
@@ -27,7 +27,7 @@ internal static class CoberturaCoverageParser
             var settings = NewSecureReaderSettings();
             using var reader = XmlReader.Create(coberturaXmlPath, settings);
             var coverage = new Dictionary<string, (int Missed, int Covered)>(StringComparer.Ordinal);
-            string currentClass = string.Empty;
+            var currentClass = string.Empty;
             while (reader.Read())
             {
                 if (reader.NodeType != XmlNodeType.Element)
@@ -46,7 +46,7 @@ internal static class CoberturaCoverageParser
 
             if (coverage.Count == 0)
             {
-                return EmptyMap;
+                return _emptyMap;
             }
             return coverage;
         }
@@ -65,7 +65,7 @@ internal static class CoberturaCoverageParser
     private static void ReadMethodCoverage(
         XmlReader reader, string currentClass, Dictionary<string, (int Missed, int Covered)> coverage)
     {
-        string? methodName = reader.GetAttribute("name");
+        var methodName = reader.GetAttribute("name");
         if (string.IsNullOrEmpty(methodName) || string.IsNullOrEmpty(currentClass))
         {
             return;
@@ -75,10 +75,10 @@ internal static class CoberturaCoverageParser
             return;
         }
 
-        int missed = 0;
-        int covered = 0;
-        int minLine = int.MaxValue;
-        bool hasLine = false;
+        var missed = 0;
+        var covered = 0;
+        var minLine = int.MaxValue;
+        var hasLine = false;
 
         // <method><lines><line number=".." hits=".."/>...</lines></method>
         while (reader.Read())
@@ -92,7 +92,7 @@ internal static class CoberturaCoverageParser
                 continue;
             }
             hasLine = true;
-            int hits = ParseInt(reader.GetAttribute("hits"));
+            var hits = ParseInt(reader.GetAttribute("hits"));
             if (hits > 0)
             {
                 covered++;
@@ -101,7 +101,7 @@ internal static class CoberturaCoverageParser
             {
                 missed++;
             }
-            int number = ParseInt(reader.GetAttribute("number"));
+            var number = ParseInt(reader.GetAttribute("number"));
             if (number < minLine)
             {
                 minLine = number;
@@ -125,7 +125,7 @@ internal static class CoberturaCoverageParser
         return string.Create(className.Length, className, static (span, name) =>
         {
             name.AsSpan().CopyTo(span);
-            for (int i = 0; i < span.Length; i++)
+            for (var i = 0; i < span.Length; i++)
             {
                 if (span[i] == '/' || span[i] == '\\')
                 {
@@ -141,7 +141,7 @@ internal static class CoberturaCoverageParser
         {
             return 0;
         }
-        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int result))
+        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
         {
             return result;
         }

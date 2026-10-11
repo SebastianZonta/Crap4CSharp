@@ -26,7 +26,7 @@ public sealed class CoverageRunnerTest : IDisposable
     [Fact]
     public void DeletesStaleCoverageAndRunsDotnetCoverageCommand()
     {
-        string resultsDir = Path.Combine(_tempDir, "TestResults");
+        var resultsDir = Path.Combine(_tempDir, "TestResults");
         Directory.CreateDirectory(resultsDir);
         File.WriteAllText(Path.Combine(resultsDir, "old.xml"), "stale");
 
@@ -50,7 +50,7 @@ public sealed class CoverageRunnerTest : IDisposable
         var executor = new RecordingExecutor(2);
         var runner = new CoverageRunner(executor);
 
-        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+        var ex = Assert.Throws<InvalidOperationException>(
             () => runner.GenerateCoverage(_tempDir));
 
         Assert.Equal("Coverage command failed with exit 2", ex.Message);
@@ -73,7 +73,7 @@ public sealed class CoverageRunnerTest : IDisposable
     [Fact]
     public async Task AsyncDeletesNestedTestResultsBeforeRunning()
     {
-        string resultsDir = Path.Combine(_tempDir, "TestResults", "nested", "deep");
+        var resultsDir = Path.Combine(_tempDir, "TestResults", "nested", "deep");
         Directory.CreateDirectory(resultsDir);
         await File.WriteAllTextAsync(Path.Combine(resultsDir, "old.xml"), "stale");
 
@@ -94,7 +94,7 @@ public sealed class CoverageRunnerTest : IDisposable
     [Fact]
     public async Task AsyncMissingModuleRootThrowsDirectoryNotFound()
     {
-        string missing = Path.Combine(_tempDir, "does-not-exist");
+        var missing = Path.Combine(_tempDir, "does-not-exist");
         var runner = new CoverageRunner(new ProcessCommandExecutor());
 
         await Assert.ThrowsAsync<DirectoryNotFoundException>(
@@ -104,7 +104,7 @@ public sealed class CoverageRunnerTest : IDisposable
     [Fact]
     public async Task DeletesStaleCoverageFileAtTestResultsPath()
     {
-        string resultsPath = Path.Combine(_tempDir, "TestResults");
+        var resultsPath = Path.Combine(_tempDir, "TestResults");
         await File.WriteAllTextAsync(resultsPath, "stale");
 
         var executor = new RecordingExecutor(0);
@@ -119,11 +119,11 @@ public sealed class CoverageRunnerTest : IDisposable
     [Fact]
     public async Task ThreeArgOverloadTargetsSolutionWithModuleResultsDir()
     {
-        string moduleRoot = Path.Combine(_tempDir, "src", "Demo");
+        var moduleRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(moduleRoot);
-        string target = Path.Combine(_tempDir, "App.sln");
+        var target = Path.Combine(_tempDir, "App.sln");
         await File.WriteAllTextAsync(target, "");
-        string stale = Path.Combine(moduleRoot, "TestResults", "old.xml");
+        var stale = Path.Combine(moduleRoot, "TestResults", "old.xml");
         Directory.CreateDirectory(Path.GetDirectoryName(stale)!);
         await File.WriteAllTextAsync(stale, "stale");
 
@@ -146,7 +146,7 @@ public sealed class CoverageRunnerTest : IDisposable
     {
         var runner = new CoverageRunner(new RecordingExecutor(2));
 
-        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => runner.GenerateCoverageAsync(Path.Combine(_tempDir, "App.sln"), _tempDir));
 
         Assert.Equal("Coverage command failed with exit 2", ex.Message);
@@ -168,7 +168,7 @@ public sealed class CoverageRunnerTest : IDisposable
         {
             return;
         }
-        string resultsDir = Path.Combine(_tempDir, "TestResults");
+        var resultsDir = Path.Combine(_tempDir, "TestResults");
         Directory.CreateDirectory(resultsDir);
         File.WriteAllText(Path.Combine(resultsDir, "locked.xml"), "stale");
         // Drop write permission so the recursive delete fails.
@@ -182,7 +182,7 @@ public sealed class CoverageRunnerTest : IDisposable
         {
             var runner = new CoverageRunner(new RecordingExecutor(0));
 
-            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            var ex = Assert.Throws<InvalidOperationException>(
                 () => runner.GenerateCoverage(_tempDir));
 
             Assert.StartsWith("Failed deleting stale coverage:", ex.Message, StringComparison.Ordinal);

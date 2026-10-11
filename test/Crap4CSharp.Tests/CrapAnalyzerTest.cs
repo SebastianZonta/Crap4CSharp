@@ -2,7 +2,7 @@ namespace Crap4CSharp.Tests;
 
 public sealed class CrapAnalyzerTest : IDisposable
 {
-    private static readonly string[] ExpectedMethodOrder = ["Alpha", "Beta", "Gamma"];
+    private static readonly string[] _expectedMethodOrder = ["Alpha", "Beta", "Gamma"];
     private readonly string _tempDir = Directory.CreateTempSubdirectory("crap4csharp-test-").FullName;
 
     public void Dispose()
@@ -28,9 +28,9 @@ public sealed class CrapAnalyzerTest : IDisposable
     [Fact]
     public void ComputesScoresForChangedFiles()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Sample");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Sample");
         Directory.CreateDirectory(sourceRoot);
-        string source = Path.Combine(sourceRoot, "Sample.cs");
+        var source = Path.Combine(sourceRoot, "Sample.cs");
         File.WriteAllText(source, """
             namespace Demo;
             class Sample {
@@ -43,7 +43,7 @@ public sealed class CrapAnalyzerTest : IDisposable
             }
             """);
 
-        string cobertura = Path.Combine(_tempDir, "coverage.cobertura.xml");
+        var cobertura = Path.Combine(_tempDir, "coverage.cobertura.xml");
         File.WriteAllText(cobertura, """
             <coverage>
               <packages>
@@ -70,7 +70,7 @@ public sealed class CrapAnalyzerTest : IDisposable
         var result = CrapAnalyzer.Analyze(_tempDir, new[] { source }, cobertura);
 
         Assert.Single(result);
-        MethodMetrics metric = result[0];
+        var metric = result[0];
         Assert.Equal("Alpha", metric.MethodName);
         Assert.Equal("Demo.Sample", metric.ClassName);
         Assert.Equal(2, metric.Complexity);
@@ -81,7 +81,7 @@ public sealed class CrapAnalyzerTest : IDisposable
     [Fact]
     public void SkipsMissingFilesWithoutThrowing()
     {
-        string missing = Path.Combine(_tempDir, "src", "Gone.cs");
+        var missing = Path.Combine(_tempDir, "src", "Gone.cs");
 
         var result = CrapAnalyzer.Analyze(_tempDir, new[] { missing }, null);
 
@@ -91,9 +91,9 @@ public sealed class CrapAnalyzerTest : IDisposable
     [Fact]
     public void SortsMixedKnownAndUnknownScoresWithUnknownsLast()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Sample");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Sample");
         Directory.CreateDirectory(sourceRoot);
-        string source = Path.Combine(sourceRoot, "Sample.cs");
+        var source = Path.Combine(sourceRoot, "Sample.cs");
         File.WriteAllText(source, """
             namespace Demo;
 
@@ -124,7 +124,7 @@ public sealed class CrapAnalyzerTest : IDisposable
 
         // Coverage only for the Known/Plain methods, at lines that do not
         // exactly match the method starts (exercises nearest-line fallback).
-        string cobertura = Path.Combine(_tempDir, "coverage.cobertura.xml");
+        var cobertura = Path.Combine(_tempDir, "coverage.cobertura.xml");
         File.WriteAllText(cobertura, """
             <coverage>
               <packages>
@@ -168,7 +168,7 @@ public sealed class CrapAnalyzerTest : IDisposable
             ["Demo.Sample#Alpha:10"] = new CoverageData(1, 3),
         };
 
-        double? coverage = CrapAnalyzer.LookupCoverage(coverageMap, "Demo.Sample", "Alpha", 12);
+        var coverage = CrapAnalyzer.LookupCoverage(coverageMap, "Demo.Sample", "Alpha", 12);
 
         Assert.Equal(75.0, coverage!.Value, 0.001);
     }
@@ -176,7 +176,7 @@ public sealed class CrapAnalyzerTest : IDisposable
     [Fact]
     public void UsesSimpleClassNameWhenSourceHasNoNamespace()
     {
-        string className = CrapAnalyzer.ClassNameFromSource(
+        var className = CrapAnalyzer.ClassNameFromSource(
             Path.Combine("src", "Sample.cs"),
             """
             class Sample {
@@ -195,7 +195,7 @@ public sealed class CrapAnalyzerTest : IDisposable
             ["Demo.Sample#Alpha:12"] = new CoverageData(0, 8),
         };
 
-        double? coverage = CrapAnalyzer.LookupCoverage(coverageMap, "Demo.Sample", "Alpha", 10);
+        var coverage = CrapAnalyzer.LookupCoverage(coverageMap, "Demo.Sample", "Alpha", 10);
 
         Assert.Equal(75.0, coverage!.Value, 0.001);
     }
@@ -209,7 +209,7 @@ public sealed class CrapAnalyzerTest : IDisposable
             ["Demo.Sample#Alpha:15"] = new CoverageData(0, 8),
         };
 
-        double? coverage = CrapAnalyzer.LookupCoverage(coverageMap, "Demo.Sample", "Alpha", 13);
+        var coverage = CrapAnalyzer.LookupCoverage(coverageMap, "Demo.Sample", "Alpha", 13);
 
         Assert.Equal(100.0, coverage!.Value, 0.001);
     }
@@ -223,7 +223,7 @@ public sealed class CrapAnalyzerTest : IDisposable
             ["Demo.Sample#Alpha:14"] = new CoverageData(0, 8),
         };
 
-        CoverageData? nearest = CrapAnalyzer.NearestCoverage(coverageMap, "Demo.Sample", "Alpha", 12);
+        var nearest = CrapAnalyzer.NearestCoverage(coverageMap, "Demo.Sample", "Alpha", 12);
 
         Assert.Equal(75.0, nearest!.Value.CoveragePercent(), 0.001);
     }
@@ -231,7 +231,7 @@ public sealed class CrapAnalyzerTest : IDisposable
     [Fact]
     public void LookupCoverageReturnsNullWhenMethodHasNoCoverageEntries()
     {
-        double? coverage = CrapAnalyzer.LookupCoverage(
+        var coverage = CrapAnalyzer.LookupCoverage(
             new Dictionary<string, CoverageData>(), "Demo.Sample", "Alpha", 10);
 
         Assert.Null(coverage);
@@ -260,9 +260,9 @@ public sealed class CrapAnalyzerTest : IDisposable
     [Fact]
     public void SortsMetricsByScoreDescendingWithNullsLast()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Sample");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Sample");
         Directory.CreateDirectory(sourceRoot);
-        string source = Path.Combine(sourceRoot, "Sample.cs");
+        var source = Path.Combine(sourceRoot, "Sample.cs");
         File.WriteAllText(source, """
             namespace Demo;
 
@@ -284,7 +284,7 @@ public sealed class CrapAnalyzerTest : IDisposable
             }
             """);
 
-        string cobertura = Path.Combine(_tempDir, "coverage.cobertura.xml");
+        var cobertura = Path.Combine(_tempDir, "coverage.cobertura.xml");
         File.WriteAllText(cobertura, """
             <coverage>
               <packages>
@@ -316,7 +316,7 @@ public sealed class CrapAnalyzerTest : IDisposable
 
         var result = CrapAnalyzer.Analyze(_tempDir, new[] { source }, cobertura);
 
-        Assert.Equal(ExpectedMethodOrder,
+        Assert.Equal(_expectedMethodOrder,
             result.Select(m => m.MethodName).ToList());
     }
 }

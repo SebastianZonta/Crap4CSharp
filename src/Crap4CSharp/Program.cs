@@ -7,7 +7,7 @@ internal static class Program
 {
     public static int Main(string[] args)
     {
-        string projectRoot = Path.GetFullPath(Directory.GetCurrentDirectory());
+        var projectRoot = Path.GetFullPath(Directory.GetCurrentDirectory());
         using var cts = new CancellationTokenSource();
         ConsoleCancelEventHandler? handler = (_, e) =>
         {

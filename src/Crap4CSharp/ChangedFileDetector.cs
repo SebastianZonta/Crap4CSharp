@@ -34,8 +34,8 @@ internal static class ChangedFileDetector
             ?? throw new InvalidOperationException("git status failed: could not start git process");
         // Concurrent async reads: sequential sync ReadToEnd can deadlock when
         // either pipe buffer fills on large status output.
-        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        Task<string> stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
         try
         {
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
@@ -45,12 +45,12 @@ internal static class ChangedFileDetector
             process.TryKillTree();
             throw;
         }
-        string stdout = await stdoutTask.ConfigureAwait(false);
-        string stderr = await stderrTask.ConfigureAwait(false);
+        var stdout = await stdoutTask.ConfigureAwait(false);
+        var stderr = await stderrTask.ConfigureAwait(false);
         if (process.ExitCode != 0)
         {
             throw new InvalidOperationException(
-                "git status failed with exit " + process.ExitCode + ": " + (stdout + stderr));
+                "git status failed with exit " + process.ExitCode + ": " + stdout + stderr);
         }
 
         return ParseChangedFiles(projectRoot, stdout);
@@ -63,10 +63,10 @@ internal static class ChangedFileDetector
         string projectRoot, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(projectRoot);
-        string src = Path.GetFullPath(Path.Combine(projectRoot, ToolConstants.SrcDirName));
-        string prefix = src + Path.DirectorySeparatorChar;
+        var src = Path.GetFullPath(Path.Combine(projectRoot, ToolConstants.SrcDirName));
+        var prefix = src + Path.DirectorySeparatorChar;
         List<string> files = [];
-        foreach (string path in await ChangedCsFilesAsync(projectRoot, cancellationToken).ConfigureAwait(false))
+        foreach (var path in await ChangedCsFilesAsync(projectRoot, cancellationToken).ConfigureAwait(false))
         {
             if (path.IsUnderDirectory(src, prefix))
             {
@@ -79,19 +79,19 @@ internal static class ChangedFileDetector
     private static string[] ParseChangedFiles(ReadOnlySpan<char> root, ReadOnlySpan<char> stdout)
     {
         List<string> files = [];
-        ReadOnlySpan<char> output = stdout;
-        int start = 0;
+        var output = stdout;
+        var start = 0;
         while (true)
         {
-            int newline = output.Slice(start).IndexOf('\n');
-            ReadOnlySpan<char> line = newline < 0
+            var newline = output.Slice(start).IndexOf('\n');
+            var line = newline < 0
                 ? output.Slice(start)
                 : output.Slice(start, newline);
             if (line.Length > 0 && line[line.Length - 1] == '\r')
             {
                 line = line.Slice(0, line.Length - 1);
             }
-            string? file = ParseStatusLine(root, line);
+            var file = ParseStatusLine(root, line);
             if (file is not null)
             {
                 files.Add(file);
@@ -112,7 +112,7 @@ internal static class ChangedFileDetector
         {
             return null;
         }
-        ReadOnlySpan<char> finalPath = line.Slice(3).Trim().RenameTarget();
+        var finalPath = line.Slice(3).Trim().RenameTarget();
         if (!IsCsPath(finalPath))
         {
             return null;
@@ -129,7 +129,7 @@ internal static class ChangedFileDetector
         {
             return false;
         }
-        foreach (char c in line)
+        foreach (var c in line)
         {
             if (!char.IsWhiteSpace(c))
             {
@@ -144,7 +144,7 @@ internal static class ChangedFileDetector
 
     private static ReadOnlySpan<char> RenameTarget(this ReadOnlySpan<char> pathPart)
     {
-        int index = pathPart.IndexOf(" -> ", StringComparison.Ordinal);
+        var index = pathPart.IndexOf(" -> ", StringComparison.Ordinal);
         if (index < 0)
         {
             return pathPart;

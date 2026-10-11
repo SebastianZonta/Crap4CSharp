@@ -33,7 +33,7 @@ public sealed class MainTest : IDisposable
         public int Run(IReadOnlyList<string> command, string directory) => _run(command, directory);
     }
 
-    private static readonly CoverageRunner NoopCoverage =
+    private static readonly CoverageRunner _noopCoverage =
         new(new FakeExecutor((_, _) => 0));
 
     [Fact]
@@ -42,7 +42,7 @@ public sealed class MainTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = Program.Run(["--help"], _tempDir, output, err, NoopCoverage);
+        var exit = Program.Run(["--help"], _tempDir, output, err, _noopCoverage);
 
         Assert.Equal(0, exit);
         Assert.Contains("Usage:", output.ToString(), StringComparison.Ordinal);
@@ -63,9 +63,9 @@ public sealed class MainTest : IDisposable
     [Fact]
     public void ExplicitFileArgsAreAnalyzed()
     {
-        string sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
-        string source = Path.Combine(sourceRoot, "Sample.cs");
+        var source = Path.Combine(sourceRoot, "Sample.cs");
         File.WriteAllText(source, """
             namespace Demo;
             class Sample {
@@ -81,12 +81,12 @@ public sealed class MainTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = Program.Run(
+        var exit = Program.Run(
             [Path.Combine("src", "Demo", "Sample.cs")],
             _tempDir,
             output,
             err,
-            NoopCoverage);
+            _noopCoverage);
 
         Assert.Equal(0, exit);
         Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
@@ -96,8 +96,8 @@ public sealed class MainTest : IDisposable
     [Fact]
     public void DirectoryArgAnalyzesCsFilesUnderThatDirectorySrc()
     {
-        string moduleRoot = Path.Combine(_tempDir, "module-a");
-        string sourceRoot = Path.Combine(moduleRoot, "src", "Demo");
+        var moduleRoot = Path.Combine(_tempDir, "module-a");
+        var sourceRoot = Path.Combine(moduleRoot, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
         File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
             namespace Demo;
@@ -114,7 +114,7 @@ public sealed class MainTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = Program.Run(["module-a"], _tempDir, output, err, NoopCoverage);
+        var exit = Program.Run(["module-a"], _tempDir, output, err, _noopCoverage);
 
         Assert.Equal(0, exit);
         Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
@@ -137,7 +137,7 @@ public sealed class MainTest : IDisposable
     [Fact]
     public void MainEntryPointHandlesHelpInProcess()
     {
-        int exit = Program.Main(["--help"]);
+        var exit = Program.Main(["--help"]);
 
         Assert.Equal(0, exit);
     }
@@ -148,7 +148,7 @@ public sealed class MainTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = Program.Run(["--help"], _tempDir, output, err);
+        var exit = Program.Run(["--help"], _tempDir, output, err);
 
         Assert.Equal(0, exit);
         Assert.Contains("Usage:", output.ToString(), StringComparison.Ordinal);
@@ -160,7 +160,7 @@ public sealed class MainTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = await Program.RunAsync(["--help"], _tempDir, output, err);
+        var exit = await Program.RunAsync(["--help"], _tempDir, output, err);
 
         Assert.Equal(0, exit);
         Assert.Contains("Usage:", output.ToString(), StringComparison.Ordinal);
@@ -172,7 +172,7 @@ public sealed class MainTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = Program.Run(["--version"], _tempDir, output, err, NoopCoverage);
+        var exit = Program.Run(["--version"], _tempDir, output, err, _noopCoverage);
 
         Assert.Equal(0, exit);
         Assert.Contains("crap4csharp", output.ToString(), StringComparison.Ordinal);
@@ -184,7 +184,7 @@ public sealed class MainTest : IDisposable
         using var output = new StringWriter();
         using var err = new StringWriter();
 
-        int exit = Program.Run(["--bogus"], _tempDir, output, err, NoopCoverage);
+        var exit = Program.Run(["--bogus"], _tempDir, output, err, _noopCoverage);
 
         Assert.Equal(1, exit);
         Assert.Contains("Unknown option", err.ToString(), StringComparison.Ordinal);
@@ -192,7 +192,7 @@ public sealed class MainTest : IDisposable
 
     private static int RunTool(string arguments, string workingDirectory)
     {
-        string dll = FindToolDll();
+        var dll = FindToolDll();
         using var process = Process.Start(new ProcessStartInfo("dotnet", $"\"{dll}\" {arguments}")
         {
             WorkingDirectory = workingDirectory,
@@ -210,10 +210,10 @@ public sealed class MainTest : IDisposable
     private static string FindToolDll()
     {
         // .../test/Crap4CSharp.Tests/bin/<config>/<tfm>/ -> repo/src/Crap4CSharp/bin/<config>/<tfm>/
-        string baseDir = AppContext.BaseDirectory;
-        string tfm = Path.GetFileName(baseDir.TrimEnd(Path.DirectorySeparatorChar));
-        string config = Path.GetFileName(Path.GetDirectoryName(baseDir.TrimEnd(Path.DirectorySeparatorChar))!);
-        string? dir = baseDir;
+        var baseDir = AppContext.BaseDirectory;
+        var tfm = Path.GetFileName(baseDir.TrimEnd(Path.DirectorySeparatorChar));
+        var config = Path.GetFileName(Path.GetDirectoryName(baseDir.TrimEnd(Path.DirectorySeparatorChar))!);
+        var dir = baseDir;
         while (dir is not null && !File.Exists(Path.Combine(dir, "Crap4CSharp.sln")))
         {
             dir = Path.GetDirectoryName(dir);
@@ -222,7 +222,7 @@ public sealed class MainTest : IDisposable
         {
             throw new DirectoryNotFoundException("Repo root (Crap4CSharp.sln) not found above " + baseDir);
         }
-        string dll = Path.Combine(dir, "src", "Crap4CSharp", "bin", config, tfm, "Crap4CSharp.dll");
+        var dll = Path.Combine(dir, "src", "Crap4CSharp", "bin", config, tfm, "Crap4CSharp.dll");
         if (!File.Exists(dll))
         {
             throw new FileNotFoundException("Tool dll not built: " + dll);

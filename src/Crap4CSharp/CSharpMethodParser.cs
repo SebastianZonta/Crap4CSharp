@@ -36,17 +36,17 @@ internal sealed class MethodCollector : CSharpSyntaxWalker
             return;
         if (node.Parent is not BaseTypeDeclarationSyntax declaringType)
             return;
-        for (SyntaxNode? parent = declaringType.Parent; parent is not null; parent = parent.Parent)
+        for (var parent = declaringType.Parent; parent is not null; parent = parent.Parent)
         {
             if (parent is BaseTypeDeclarationSyntax)
                 return;
         }
 
         _complexity.Reset();
-        CSharpSyntaxNode implementation = (CSharpSyntaxNode?)node.Body ?? node.ExpressionBody!;
+        var implementation = (CSharpSyntaxNode?)node.Body ?? node.ExpressionBody!;
         _complexity.Visit(implementation);
-        int start = _lines.GetLinePosition(node.Span.Start).Line + 1;
-        int end = _lines.GetLinePosition(implementation.Span.End).Line + 1;
+        var start = _lines.GetLinePosition(node.Span.Start).Line + 1;
+        var end = _lines.GetLinePosition(implementation.Span.End).Line + 1;
         Methods.Add(new MethodDescriptor(node.Identifier.ValueText, start, end, _complexity.Complexity));
     }
 }

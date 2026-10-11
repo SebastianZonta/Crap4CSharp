@@ -24,19 +24,19 @@ internal sealed class CliApplication
     internal async Task<int> ExecuteAsync(string[] args, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(args);
-        ParseOutcome parse = ParseArguments(args);
+        var parse = ParseArguments(args);
         if (parse.ExitCode >= 0)
         {
             return parse.ExitCode;
         }
-        CliArguments parsed = parse.Arguments!;
+        var parsed = parse.Arguments!;
         if (parsed.Mode == CliMode.Version)
         {
             await _out.WriteLineAsync(Program.Version()).ConfigureAwait(false);
             return 0;
         }
 
-        string effectiveRoot = ResolveRoot(parsed.ProjectPath);
+        var effectiveRoot = ResolveRoot(parsed.ProjectPath);
         try
         {
             return await ExecuteOnRootAsync(parsed, effectiveRoot, cancellationToken).ConfigureAwait(false);
@@ -51,15 +51,15 @@ internal sealed class CliApplication
     private async Task<int> ExecuteOnRootAsync(
         CliArguments parsed, string effectiveRoot, CancellationToken cancellationToken)
     {
-        string effectivePrefix = effectiveRoot + Path.DirectorySeparatorChar;
-        IReadOnlyList<string> filesToAnalyze = await FilesForModeAsync(parsed, effectiveRoot, cancellationToken).ConfigureAwait(false);
+        var effectivePrefix = effectiveRoot + Path.DirectorySeparatorChar;
+        var filesToAnalyze = await FilesForModeAsync(parsed, effectiveRoot, cancellationToken).ConfigureAwait(false);
         if (filesToAnalyze.Count == 0)
         {
             await _out.WriteLineAsync(ToolConstants.NoFilesMessage).ConfigureAwait(false);
             return 0;
         }
 
-        List<MethodMetrics> metrics = await AnalyzeByModuleAsync(
+        var metrics = await AnalyzeByModuleAsync(
             filesToAnalyze, effectiveRoot, effectivePrefix, parsed.NoCoverage, cancellationToken).ConfigureAwait(false);
         metrics.Sort(CrapScore.CompareByCrapDesc);
         if (parsed.MinComplexity > 1)
@@ -70,14 +70,14 @@ internal sealed class CliApplication
         {
             metrics.RemoveRange(parsed.Top.Value, metrics.Count - parsed.Top.Value);
         }
-        string report = ReportFormatter.FormatAs(metrics, parsed.Format);
+        var report = ReportFormatter.FormatAs(metrics, parsed.Format);
         await _out.WriteAsync(report).ConfigureAwait(false);
         if (parsed.OutputPath is not null)
         {
             await WriteReportFileAsync(parsed.OutputPath, report, cancellationToken).ConfigureAwait(false);
         }
 
-        double max = metrics.MaxCrap();
+        var max = metrics.MaxCrap();
         if (ThresholdExceeded(max, parsed.Threshold))
         {
             await _err.WriteLineAsync(ToolConstants.ThresholdExceededMessage(max, parsed.Threshold)).ConfigureAwait(false);
@@ -88,8 +88,8 @@ internal sealed class CliApplication
 
     private async Task WriteReportFileAsync(string outputPath, string report, CancellationToken cancellationToken)
     {
-        string full = ToolConstants.CombineRooted(_projectRoot, outputPath);
-        string? dir = Path.GetDirectoryName(full);
+        var full = ToolConstants.CombineRooted(_projectRoot, outputPath);
+        var dir = Path.GetDirectoryName(full);
         if (dir is not null)
         {
             Directory.CreateDirectory(dir);
@@ -103,7 +103,7 @@ internal sealed class CliApplication
         {
             return _projectRoot;
         }
-        string combined = ToolConstants.CombineRooted(_projectRoot, projectPath);
+        var combined = ToolConstants.CombineRooted(_projectRoot, projectPath);
         try
         {
             if (File.Exists(combined))
@@ -125,13 +125,13 @@ internal sealed class CliApplication
         List<MethodMetrics> metrics = [];
         foreach (var entry in GroupByModuleRoot(filesToAnalyze, effectiveRoot, effectivePrefix))
         {
-            string moduleRoot = entry.Key;
+            var moduleRoot = entry.Key;
             if (!noCoverage)
             {
-                string testTarget = TestTargetFor(effectiveRoot, moduleRoot);
+                var testTarget = TestTargetFor(effectiveRoot, moduleRoot);
                 await _coverageRunner.GenerateCoverageAsync(testTarget, moduleRoot, cancellationToken).ConfigureAwait(false);
             }
-            string? coberturaXml = FindCoberturaXml(moduleRoot);
+            var coberturaXml = FindCoberturaXml(moduleRoot);
             if (coberturaXml is null)
             {
                 await _err.WriteLineAsync(ToolConstants.CoverageMissingWarning(moduleRoot)).ConfigureAwait(false);
@@ -143,13 +143,13 @@ internal sealed class CliApplication
 
     private static string? FindCoberturaXml(string moduleRoot)
     {
-        string testResultsDir = Path.Combine(moduleRoot, ToolConstants.TestResultsDirName);
+        var testResultsDir = Path.Combine(moduleRoot, ToolConstants.TestResultsDirName);
         if (!Directory.Exists(testResultsDir))
         {
             return null;
         }
         string? min = null;
-        foreach (string candidate in Directory.EnumerateFiles(
+        foreach (var candidate in Directory.EnumerateFiles(
             testResultsDir, ToolConstants.CoberturaFileName, FileSystemHelpers.SharedEnumeration()))
         {
             if (min is null || string.Compare(candidate, min, StringComparison.Ordinal) < 0)
@@ -175,8 +175,8 @@ internal sealed class CliApplication
         try
         {
             string? single = null;
-            int count = 0;
-            foreach (string file in Directory.EnumerateFiles(workspaceRoot))
+            var count = 0;
+            foreach (var file in Directory.EnumerateFiles(workspaceRoot))
             {
                 if (file.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
                     || file.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase))
@@ -201,7 +201,7 @@ internal sealed class CliApplication
     {
         try
         {
-            CliArguments parsed = CliArgumentsParser.Parse(args);
+            var parsed = CliArgumentsParser.Parse(args);
             if (parsed.Mode == CliMode.Help)
             {
                 _out.WriteLine(Program.Usage());
@@ -219,23 +219,23 @@ internal sealed class CliApplication
 
     private static async Task<IReadOnlyList<string>> FilesForModeAsync(
         CliArguments parsed, string effectiveRoot, CancellationToken cancellationToken) => parsed.Mode switch
-    {
-        CliMode.AllSrc => SourceFileFinder.FindAllCsFilesUnderSrc(effectiveRoot),
-        CliMode.ChangedSrc => await ChangedFileDetector
-            .ChangedCsFilesUnderSrcAsync(effectiveRoot, cancellationToken).ConfigureAwait(false),
-        CliMode.ExplicitFiles => ExplicitFiles(parsed.FileArgs, effectiveRoot),
-        _ => [],
-    };
+        {
+            CliMode.AllSrc => SourceFileFinder.FindAllCsFilesUnderSrc(effectiveRoot),
+            CliMode.ChangedSrc => await ChangedFileDetector
+                .ChangedCsFilesUnderSrcAsync(effectiveRoot, cancellationToken).ConfigureAwait(false),
+            CliMode.ExplicitFiles => ExplicitFiles(parsed.FileArgs, effectiveRoot),
+            _ => [],
+        };
 
     private static string[] ExplicitFiles(IReadOnlyList<string> args, string effectiveRoot)
     {
         var files = new HashSet<string>(StringComparer.Ordinal);
-        foreach (string arg in args)
+        foreach (var arg in args)
         {
-            string path = ToolConstants.CombineRooted(effectiveRoot, arg);
+            var path = ToolConstants.CombineRooted(effectiveRoot, arg);
             if (Directory.Exists(path))
             {
-                foreach (string file in SourceFileFinder.FindAllCsFilesUnderSrc(path))
+                foreach (var file in SourceFileFinder.FindAllCsFilesUnderSrc(path))
                 {
                     files.Add(file);
                 }
@@ -252,13 +252,13 @@ internal sealed class CliApplication
 
     internal static string ModuleRootFor(string workspaceRoot, string file)
     {
-        string normalized = Path.GetFullPath(workspaceRoot);
+        var normalized = Path.GetFullPath(workspaceRoot);
         return ModuleRootForNormalized(normalized, normalized + Path.DirectorySeparatorChar, file);
     }
 
     private static string ModuleRootForNormalized(string normalizedRoot, string rootPrefix, string file)
     {
-        string? current = Directory.Exists(file)
+        var current = Directory.Exists(file)
             ? Path.GetFullPath(file)
             : Path.GetDirectoryName(Path.GetFullPath(file));
         while (current is not null && current.IsUnderDirectory(normalizedRoot, rootPrefix))
@@ -288,10 +288,10 @@ internal sealed class CliApplication
         IReadOnlyList<string> filesToAnalyze, string effectiveRoot, string effectivePrefix)
     {
         var grouped = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-        foreach (string file in filesToAnalyze)
+        foreach (var file in filesToAnalyze)
         {
-            string moduleRoot = ModuleRootForNormalized(effectiveRoot, effectivePrefix, file);
-            if (!grouped.TryGetValue(moduleRoot, out List<string>? list))
+            var moduleRoot = ModuleRootForNormalized(effectiveRoot, effectivePrefix, file);
+            if (!grouped.TryGetValue(moduleRoot, out var list))
             {
                 list = [];
                 grouped[moduleRoot] = list;

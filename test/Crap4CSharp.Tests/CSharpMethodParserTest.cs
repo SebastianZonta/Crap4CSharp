@@ -8,7 +8,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void ExtractsConcreteMethodsWithLinesAndComplexity()
     {
-        string source = """
+        var source = """
             class Sample {
                 int Alpha(bool a, bool b) {
                     if (a && b) {
@@ -41,7 +41,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void IgnoresConstructorsAndAbstractMethods()
     {
-        string source = """
+        var source = """
             abstract class Sample {
                 Sample() {
                 }
@@ -62,7 +62,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void IgnoresMethodsOfNestedTypes()
     {
-        string source = """
+        var source = """
             class Outer {
                 int Top() {
                     return 1;
@@ -90,7 +90,7 @@ public sealed class CSharpMethodParserTest
         // C# has no anonymous classes with methods (the Java oracle case); the
         // equivalent method-like thing inside a body is a local function: not a
         // separate descriptor, but its decisions count like a lambda body.
-        string source = """
+        var source = """
             class Sample {
                 int Outer() {
                     int Local() {
@@ -111,7 +111,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void ParsesMethodsWithoutResolvingSiblingTypes()
     {
-        string source = """
+        var source = """
             namespace Demo;
 
             class Sample {
@@ -129,7 +129,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void IgnoresKeywordsInsideCommentsAndStrings()
     {
-        string source = """
+        var source = """
             class Sample {
                 int Stable() {
                     string text = "if && || ? case default catch ?? ?. =>";
@@ -148,7 +148,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void CountsDecisionNodesFromTheAst()
     {
-        string source = """
+        var source = """
             class Sample {
                 int Score(bool a, bool b, int[] values) {
                     for (int i = 0; i < values.Length; i++) {
@@ -180,7 +180,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void VisitsNestedDecisionNodesInsideOtherDecisionNodes()
     {
-        string source = """
+        var source = """
             class Sample {
                 int Nested(bool a, bool b, int[] values) {
                     for (int i = 0; i < values.Length; i++) {
@@ -239,7 +239,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void SwitchExpressionArmsAndNullOperatorsDoNotCount()
     {
-        string source = """
+        var source = """
             class Sample {
                 int Kind(int x) {
                     return x switch { 1 => 10, _ => 0 };
@@ -270,7 +270,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void ElseForeachDeconstructionAndCatchFilterDoNotCountExtra()
     {
-        string source = """
+        var source = """
             class Sample {
                 int Sign(int x) {
                     if (x > 0) {
@@ -313,7 +313,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void CountsPatternCaseLabels()
     {
-        string source = """
+        var source = """
             class Sample {
                 int Classify(object value) {
                     switch (value) {
@@ -341,7 +341,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void SkipsAbstractMethodWithBody()
     {
-        string source = """
+        var source = """
             abstract class Sample {
                 abstract int Missing() {
                     return 1;
@@ -378,7 +378,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void ArrowBodiedMethodIsReportedWithComplexityOne()
     {
-        string source = """
+        var source = """
             class Sample {
                 public static int Add(int a, int b) => a + b;
             }
@@ -392,7 +392,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void ArrowBodiedMethodCountsDecisionNodes()
     {
-        string source = """
+        var source = """
             class Sample {
                 int Pick(bool a, bool b, int x) => a && b || x > 0 ? 1 : 0;
             }
@@ -406,7 +406,7 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void BlockBodiedMethodAlongsideArrowIsUnchanged()
     {
-        string source = """
+        var source = """
             class Sample {
                 int Block(int x) {
                     return x;

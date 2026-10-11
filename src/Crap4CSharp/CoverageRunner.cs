@@ -24,8 +24,8 @@ internal sealed class CoverageRunner
         cancellationToken.ThrowIfCancellationRequested();
         FileSystemHelpers.DeleteIfExists(Path.Combine(moduleRoot, ToolConstants.TestResultsDirName));
 
-        string resultsDirectory = Path.Combine(moduleRoot, ToolConstants.TestResultsDirName);
-        int exit = await _executor.RunAsync(
+        var resultsDirectory = Path.Combine(moduleRoot, ToolConstants.TestResultsDirName);
+        var exit = await _executor.RunAsync(
             ["dotnet", "test", testTarget, "--collect:XPlat Code Coverage;Format=cobertura",
                 "--results-directory", resultsDirectory],
             moduleRoot,
