@@ -57,7 +57,12 @@ internal sealed class CliApplication
         CliArguments parsed, string effectiveRoot, CancellationToken cancellationToken)
     {
         var effectivePrefix = effectiveRoot + Path.DirectorySeparatorChar;
-        var filesToAnalyze = await FilesForModeAsync(parsed, effectiveRoot, cancellationToken).ConfigureAwait(false);
+        var showProgress = ProgressSpinner.IsEnabled(_err, parsed.NoProgress);
+        IReadOnlyList<string> filesToAnalyze;
+        await using (ProgressSpinner.StartIfEnabled(_err, "Discovering files…", showProgress))
+        {
+            filesToAnalyze = await FilesForModeAsync(parsed, effectiveRoot, cancellationToken).ConfigureAwait(false);
+        }
         if (filesToAnalyze.Count == 0)
         {
             await _out.WriteLineAsync(ToolConstants.NoFilesMessage).ConfigureAwait(false);
@@ -65,7 +70,7 @@ internal sealed class CliApplication
         }
 
         var metrics = await AnalyzeByModuleAsync(
-            filesToAnalyze, effectiveRoot, effectivePrefix, parsed.NoCoverage, cancellationToken).ConfigureAwait(false);
+            filesToAnalyze, effectiveRoot, effectivePrefix, parsed.NoCoverage, showProgress, cancellationToken).ConfigureAwait(false);
         metrics.Sort(CrapScore.CompareByCrapDesc);
         if (parsed.MinComplexity > 1)
         {
@@ -125,7 +130,7 @@ internal sealed class CliApplication
 
     private async Task<List<MethodMetrics>> AnalyzeByModuleAsync(
         IReadOnlyList<string> filesToAnalyze, string effectiveRoot, string effectivePrefix,
-        bool noCoverage, CancellationToken cancellationToken)
+        bool noCoverage, bool showProgress, CancellationToken cancellationToken)
     {
         List<MethodMetrics> metrics = [];
         foreach (var entry in GroupByModuleRoot(filesToAnalyze, effectiveRoot, effectivePrefix))
@@ -134,14 +139,22 @@ internal sealed class CliApplication
             if (!noCoverage)
             {
                 var testTarget = TestTargetFor(effectiveRoot, moduleRoot);
-                await _coverageRunner.GenerateCoverageAsync(testTarget, moduleRoot, cancellationToken).ConfigureAwait(false);
+                await using (ProgressSpinner.StartIfEnabled(_err, "Running coverage…", showProgress))
+                {
+                    await _coverageRunner.GenerateCoverageAsync(testTarget, moduleRoot, cancellationToken).ConfigureAwait(false);
+                }
             }
             var coberturaXml = FindCoberturaXml(moduleRoot);
             if (coberturaXml is null)
             {
                 await _err.WriteLineAsync(ToolConstants.CoverageMissingWarning(moduleRoot)).ConfigureAwait(false);
             }
-            metrics.AddRange(CrapAnalyzer.Analyze(moduleRoot, entry.Value, coberturaXml));
+            List<MethodMetrics> analyzed;
+            await using (ProgressSpinner.StartIfEnabled(_err, "Analyzing…", showProgress))
+            {
+                analyzed = [.. CrapAnalyzer.Analyze(moduleRoot, entry.Value, coberturaXml)];
+            }
+            metrics.AddRange(analyzed);
         }
         return metrics;
     }

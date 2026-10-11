@@ -77,6 +77,9 @@ crap4csharp --top 20 --min-cc 3 --no-coverage
 - `--min-cc <n>` — hide methods with complexity below `n` (default `1`).
 - `--no-coverage` — skip the `dotnet test` coverage run; reuse existing
   `TestResults/**/coverage.cobertura.xml` (missing → `N/A`).
+- `--no-progress` — disable the Braille progress spinner on stderr
+  (`Discovering files…` / `Running coverage…` / `Analyzing…`, auto-off when
+  stderr is redirected).
 - `--help, -h` (also `-?`) — print usage; `--version` — print version.
 - `--` — treat all following args as paths (e.g. files starting with `-`).
 - Both `--flag value` and `--flag=value` forms are accepted.

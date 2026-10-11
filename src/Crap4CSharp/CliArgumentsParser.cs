@@ -13,6 +13,7 @@ internal static class CliArgumentsParser
         int? top = null;
         var minComplexity = 1;
         var noCoverage = false;
+        var noProgress = false;
         var changed = false;
         var help = false;
         var version = false;
@@ -51,6 +52,11 @@ internal static class CliArgumentsParser
                 {
                     RejectValue(name, hasInline);
                     noCoverage = true;
+                }
+                else if (IsFlag(name, "--no-progress"))
+                {
+                    RejectValue(name, hasInline);
+                    noProgress = true;
                 }
                 else if (IsFlag(name, "--path"))
                 {
@@ -100,6 +106,9 @@ internal static class CliArgumentsParser
                     case "--no-coverage":
                         noCoverage = true;
                         break;
+                    case "--no-progress":
+                        noProgress = true;
+                        break;
                     case "--path":
                     case "--output":
                     case "-o":
@@ -141,17 +150,17 @@ internal static class CliArgumentsParser
             }
             return new CliArguments(
                 CliMode.ChangedSrc, [], projectPath, outputPath,
-                threshold, format, top, minComplexity, noCoverage);
+                threshold, format, top, minComplexity, noCoverage, noProgress);
         }
         if (values is null || values.Count == 0)
         {
             return new CliArguments(
                 CliMode.AllSrc, [], projectPath, outputPath,
-                threshold, format, top, minComplexity, noCoverage);
+                threshold, format, top, minComplexity, noCoverage, noProgress);
         }
         return new CliArguments(
             CliMode.ExplicitFiles, values.ToArray(), projectPath, outputPath,
-            threshold, format, top, minComplexity, noCoverage);
+            threshold, format, top, minComplexity, noCoverage, noProgress);
     }
 
     private static bool IsFlag(ReadOnlySpan<char> name, ReadOnlySpan<char> flag) =>

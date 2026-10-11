@@ -9,4 +9,5 @@ internal sealed record CliArguments(
     string Format = "text",
     int? Top = null,
     int MinComplexity = 1,
-    bool NoCoverage = false);
+    bool NoCoverage = false,
+    bool NoProgress = false);

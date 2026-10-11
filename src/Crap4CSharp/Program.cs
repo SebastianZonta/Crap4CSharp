@@ -71,6 +71,7 @@ internal static class Program
           --top <n>                Show only the n worst methods.
           --min-cc <n>             Hide methods with complexity below n (default 1).
           --no-coverage            Skip 'dotnet test' coverage run; reuse existing XML.
+          --no-progress            Disable the progress spinner on stderr.
           --help, -h               Print this help message.
           --version                Print version.
         """;
