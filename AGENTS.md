@@ -10,6 +10,8 @@
 - `dotnet test --filter "FullyQualifiedName~<TestName>"` — single test
 - `dotnet run --project src/Crap4CSharp -- <args>` — run locally
   (`--help`, no args = all of `src/`, `--changed`, `<path...>`)
+- `bash e2e/matrix.sh` — E2E CLI matrix against a locally-packed tool
+  (pack + `dotnet tool install -g --add-source ./nupkg` first; CI `e2e` job)
 
 ## Testing (mandatory delegation)
 
