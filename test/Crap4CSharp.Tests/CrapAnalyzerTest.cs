@@ -16,11 +16,9 @@ public sealed class CrapAnalyzerTest : IDisposable
         }
         catch (IOException)
         {
-            // best-effort cleanup
         }
         catch (UnauthorizedAccessException)
         {
-            // best-effort cleanup
         }
         GC.SuppressFinalize(this);
     }
@@ -122,8 +120,6 @@ public sealed class CrapAnalyzerTest : IDisposable
             }
             """);
 
-        // Coverage only for the Known/Plain methods, at lines that do not
-        // exactly match the method starts (exercises nearest-line fallback).
         var cobertura = Path.Combine(_tempDir, "coverage.cobertura.xml");
         File.WriteAllText(cobertura, """
             <coverage>
@@ -154,7 +150,6 @@ public sealed class CrapAnalyzerTest : IDisposable
 
         var result = CrapAnalyzer.Analyze(_tempDir, new[] { source }, cobertura);
 
-        // Scored methods first (higher CRAP first), unknown scores last.
         Assert.Equal(["Plain", "Known", "Mystery", "Other"],
             result.Select(m => m.MethodName).ToList());
     }

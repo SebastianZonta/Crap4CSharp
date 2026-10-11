@@ -24,16 +24,12 @@ internal static class ChangedFileDetector
             RedirectStandardError = true,
             UseShellExecute = false,
         };
-        // Structured argv: paths with spaces or quotes need no shell quoting.
         startInfo.ArgumentList.Add("-C");
         startInfo.ArgumentList.Add(projectRoot);
         startInfo.ArgumentList.Add("status");
         startInfo.ArgumentList.Add("--porcelain");
 
-        using var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("git status failed: could not start git process");
-        // Concurrent async reads: sequential sync ReadToEnd can deadlock when
-        // either pipe buffer fills on large status output.
+        using var process = StartGitProcess(startInfo);
         var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
         var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
         try
@@ -54,6 +50,22 @@ internal static class ChangedFileDetector
         }
 
         return ParseChangedFiles(projectRoot, stdout);
+    }
+
+    private static Process StartGitProcess(ProcessStartInfo startInfo)
+    {
+        Process? process;
+        try
+        {
+            process = Process.Start(startInfo);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                "git status failed: could not start git process", ex);
+        }
+        return process
+            ?? throw new InvalidOperationException("git status failed: could not start git process");
     }
 
     public static IReadOnlyList<string> ChangedCsFilesUnderSrc(string projectRoot) =>

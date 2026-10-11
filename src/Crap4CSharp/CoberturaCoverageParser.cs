@@ -3,13 +3,6 @@ using System.Xml;
 
 namespace Crap4CSharp;
 
-// Mirrors crap4java.JacocoCoverageParser (final class + private ctor + statics)
-// adapted to Cobertura XML (coverlet): per <method>, covered = lines with
-// hits > 0, missed = lines with hits == 0, key "class#method:minLine".
-//
-// Coverage value: ticket 07 owns the top-level CoverageData record. Until it
-// lands (parallel work), this parser returns plain (Missed, Covered) pairs so
-// it builds standalone; ticket 10/integration will unify the value type.
 internal static class CoberturaCoverageParser
 {
     private static readonly IReadOnlyDictionary<string, (int Missed, int Covered)> _emptyMap =
@@ -80,7 +73,6 @@ internal static class CoberturaCoverageParser
         var minLine = int.MaxValue;
         var hasLine = false;
 
-        // <method><lines><line number=".." hits=".."/>...</lines></method>
         while (reader.Read())
         {
             if (reader.NodeType == XmlNodeType.EndElement && reader.Name == "method")

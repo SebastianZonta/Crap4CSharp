@@ -48,9 +48,6 @@ internal sealed class CliApplication
         }
         catch (InvalidOperationException ex)
         {
-            // git (`--changed` outside a repo) and coverage (`dotnet test`
-            // failure) surface as InvalidOperationException: report and exit 1
-            // instead of crashing with an unhandled exception.
             await _err.WriteLineAsync(ex.Message).ConfigureAwait(false);
             return 1;
         }
@@ -172,14 +169,6 @@ internal sealed class CliApplication
 
     internal static bool ThresholdExceeded(double max, double threshold) => max.CompareTo(threshold) > 0;
 
-    // Coverage must run against a testable target: `dotnet test` on a plain
-    // library project exits 0 but produces no Cobertura file, so on the
-    // standard src/test split the module root alone always yields N/A.
-    // When the workspace root holds exactly one solution, test that instead
-    // (results still land under the module's TestResults); otherwise look
-    // for a sibling test project (e.g. tests/Bookings.Tests/Bookings.Tests.csproj
-    // for module src/Bookings/Bookings.csproj) and only then keep
-    // the module root (e.g. the module is itself a test project).
     internal static string TestTargetFor(string workspaceRoot, string moduleRoot)
     {
         try
@@ -214,16 +203,10 @@ internal sealed class CliApplication
         }
         catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is DirectoryNotFoundException)
         {
-            // Fall through to the module root below.
         }
         return moduleRoot;
     }
 
-    // Sibling test project for a library module: ordinal-first
-    // `<Module>.Tests`/`.Test`/`.UnitTests` match wins without reading file
-    // contents; otherwise the first project whose raw text references the
-    // module csproj file name (the ProjectReference Include tail). Skips
-    // bin/obj output and the module itself; null when nothing matches.
     internal static string? FindSiblingTestProject(string workspaceRoot, string moduleRoot)
     {
         var root = Path.GetFullPath(workspaceRoot).TrimEnd(Path.DirectorySeparatorChar);
@@ -322,18 +305,8 @@ internal sealed class CliApplication
         return best;
     }
 
-    private static bool HasBuildOutputSegment(string path)
-    {
-        foreach (var segment in path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
-        {
-            if (string.Equals(segment, "bin", StringComparison.Ordinal)
-                || string.Equals(segment, "obj", StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
+    private static bool HasBuildOutputSegment(string path) =>
+        SourceFileFinder.HasBuildOutputSegment(path);
 
     private ParseOutcome ParseArguments(string[] args)
     {
@@ -358,7 +331,7 @@ internal sealed class CliApplication
     private static async Task<IReadOnlyList<string>> FilesForModeAsync(
         CliArguments parsed, string effectiveRoot, CancellationToken cancellationToken) => parsed.Mode switch
         {
-            CliMode.AllSrc => SourceFileFinder.FindAllCsFilesUnderSrc(effectiveRoot),
+            CliMode.AllSrc => SourceFileFinder.FindAllCsFilesForDirectory(effectiveRoot),
             CliMode.ChangedSrc => await ChangedFileDetector
                 .ChangedCsFilesUnderSrcAsync(effectiveRoot, cancellationToken).ConfigureAwait(false),
             CliMode.ExplicitFiles => ExplicitFiles(parsed.FileArgs, effectiveRoot),
@@ -371,9 +344,25 @@ internal sealed class CliApplication
         foreach (var arg in args)
         {
             var path = ToolConstants.CombineRooted(effectiveRoot, arg);
-            if (Directory.Exists(path))
+            if (File.Exists(path) && SourceFileFinder.IsSolutionFile(path))
             {
-                foreach (var file in SourceFileFinder.FindAllCsFilesUnderSrc(path))
+                var solutionDir = Path.GetDirectoryName(path) ?? effectiveRoot;
+                foreach (var file in SourceFileFinder.FindAllCsFilesUnderTree(solutionDir))
+                {
+                    files.Add(file);
+                }
+            }
+            else if (File.Exists(path) && SourceFileFinder.IsCsprojFile(path))
+            {
+                var projectDir = Path.GetDirectoryName(path) ?? effectiveRoot;
+                foreach (var file in SourceFileFinder.FindAllCsFilesForDirectory(projectDir))
+                {
+                    files.Add(file);
+                }
+            }
+            else if (Directory.Exists(path))
+            {
+                foreach (var file in SourceFileFinder.FindAllCsFilesForDirectory(path))
                 {
                     files.Add(file);
                 }

@@ -45,9 +45,6 @@ internal static class CrapAnalyzer
         return string.Create(null, $"{ns}.{simpleName}");
     }
 
-    // Forward span scan replacing the old whole-source namespace regex
-    // `(?m)^\s*namespace\s+([A-Za-z_][\w.]*)\s*[;{]`: per line, skip leading
-    // whitespace, match the `namespace` keyword, then the dotted identifier.
     private static ReadOnlySpan<char> ScanNamespace(ReadOnlySpan<char> source)
     {
         var i = 0;

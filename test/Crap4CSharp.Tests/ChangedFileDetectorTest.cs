@@ -1,5 +1,7 @@
 using System.Diagnostics;
 
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
+
 namespace Crap4CSharp.Tests;
 
 public sealed class ChangedFileDetectorTest : IDisposable
@@ -17,11 +19,9 @@ public sealed class ChangedFileDetectorTest : IDisposable
         }
         catch (IOException)
         {
-            // best-effort cleanup
         }
         catch (UnauthorizedAccessException)
         {
-            // best-effort cleanup
         }
         GC.SuppressFinalize(this);
     }
@@ -68,6 +68,30 @@ public sealed class ChangedFileDetectorTest : IDisposable
             () => ChangedFileDetector.ChangedCsFiles(_tempDir));
 
         Assert.Contains("not a git repository", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MissingGitBinaryThrowsCleanInvalidOperation()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        var emptyBin = Path.Combine(_tempDir, "empty-bin");
+        Directory.CreateDirectory(emptyBin);
+        var previous = Environment.GetEnvironmentVariable("PATH");
+        Environment.SetEnvironmentVariable("PATH", emptyBin);
+        try
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => ChangedFileDetector.ChangedCsFilesAsync(_tempDir));
+            Assert.Equal("git status failed: could not start git process", error.Message);
+            Assert.IsType<InvalidOperationException>(error);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PATH", previous);
+        }
     }
 
     [Fact]
@@ -227,8 +251,6 @@ public sealed class ChangedFileDetectorTest : IDisposable
         Assert.Equal(new[] { Path.Combine(src, "New.cs") }, changed);
     }
 
-    // Sync entry points compared against their async twins; kept behind
-    // non-async helpers so the async tests above stay analyzer-clean.
     private static IReadOnlyList<string> SyncChangedFiles(string dir) =>
         ChangedFileDetector.ChangedCsFiles(dir);
 

@@ -17,11 +17,9 @@ public sealed class ProcessCommandExecutorTest : IDisposable
         }
         catch (IOException)
         {
-            // best-effort cleanup
         }
         catch (UnauthorizedAccessException)
         {
-            // best-effort cleanup
         }
     }
 
@@ -44,8 +42,6 @@ public sealed class ProcessCommandExecutorTest : IDisposable
         {
             return;
         }
-        // The -c script contains a space and quotes; via ArgumentList it must
-        // arrive as one argv entry, so $0 binds to "7" and the exit code is 7.
         var exit = new ProcessCommandExecutor().Run(["/bin/sh", "-c", "exit \"$0\"", "7"], _tempDir);
 
         Assert.Equal(7, exit);

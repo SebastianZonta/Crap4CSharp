@@ -15,11 +15,9 @@ public sealed class CliApplicationTest : IDisposable
         }
         catch (IOException)
         {
-            // best-effort cleanup
         }
         catch (UnauthorizedAccessException)
         {
-            // best-effort cleanup
         }
         GC.SuppressFinalize(this);
     }
@@ -408,7 +406,6 @@ public sealed class CliApplicationTest : IDisposable
         var source = Path.Combine(moduleRoot, "src", "Sample.cs");
         Directory.CreateDirectory(Path.GetDirectoryName(source)!);
         File.WriteAllText(source, "class Sample {}");
-        // Write-only: listing the directory (as HasCsproj does) fails.
         const UnixFileMode writeExecuteOnly =
             UnixFileMode.UserWrite | UnixFileMode.UserExecute |
             UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
@@ -462,8 +459,6 @@ public sealed class CliApplicationTest : IDisposable
     [Fact]
     public void SortsNullScoresFromModuleWithoutCoverageAfterScoredModule()
     {
-        // The scored module sorts first ("aaa" < "bbb"), so the top-level
-        // sort compares (scored, null): the only order reaching every arm.
         var moduleA = Path.Combine(_tempDir, "aaa");
         var srcA = Path.Combine(moduleA, "src");
         Directory.CreateDirectory(srcA);
@@ -1044,6 +1039,34 @@ public sealed class CliApplicationTest : IDisposable
 
         Assert.Equal(1, exit);
         Assert.Contains("git status failed", err.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ChangedWithMissingGitExitsOneWithoutThrowing()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        var emptyBin = Path.Combine(_tempDir, "empty-bin");
+        Directory.CreateDirectory(emptyBin);
+        var previous = Environment.GetEnvironmentVariable("PATH");
+        Environment.SetEnvironmentVariable("PATH", emptyBin);
+        try
+        {
+            using var output = new StringWriter();
+            using var err = new StringWriter();
+
+            var exit = await new CliApplication(_tempDir, output, err, _noopCoverage)
+                .ExecuteAsync(["--changed"]);
+
+            Assert.Equal(1, exit);
+            Assert.Contains("could not start git", err.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PATH", previous);
+        }
     }
 
     [Fact]

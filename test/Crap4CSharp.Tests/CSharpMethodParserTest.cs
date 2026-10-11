@@ -1,8 +1,5 @@
 namespace Crap4CSharp.Tests;
 
-// xUnit mirror of Java's JavaMethodParserTest, adapted to C# source fixtures.
-// Same expected CC/exclusions; C#-only edges per ticket 03 (default counts;
-// switch-expression arms, ?? and ?. do not; local functions count like lambdas).
 public sealed class CSharpMethodParserTest
 {
     [Fact]
@@ -87,9 +84,6 @@ public sealed class CSharpMethodParserTest
     [Fact]
     public void LocalFunctionsCountTowardOuterButAreNotListedSeparately()
     {
-        // C# has no anonymous classes with methods (the Java oracle case); the
-        // equivalent method-like thing inside a body is a local function: not a
-        // separate descriptor, but its decisions count like a lambda body.
         var source = """
             class Sample {
                 int Outer() {

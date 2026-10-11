@@ -1,8 +1,5 @@
 namespace Crap4CSharp;
 
-// C# mirror of Java's crap4java.Main. The class is named Program (not Main)
-// because C# forbids a member with the same name as its enclosing type;
-// the entry point, usage text and max-score helper mirror the oracle.
 internal static class Program
 {
     public static int Main(string[] args)
@@ -61,13 +58,13 @@ internal static class Program
           crap4csharp [options] [--] [<path...>]
 
         Modes (positional, backward compatible):
-          (no args)            Analyze all C# files under <root>/src/
+          (no args)            Analyze all C# files under <root>/src/ (whole tree if no src/)
           --changed            Analyze changed C# files under <root>/src/ (git status)
-          <path...>            Analyze files, or for directory args analyze <dir>/src/**/*.cs
+          <path...>            Analyze files; directories, .sln/.slnx and .csproj expand to all C# (skips bin/obj)
 
         Options:
-          --path <dir|sln|csproj>  Workspace root (default: current directory).
-                                   A .sln/.csproj file resolves to its directory.
+          --path <dir|sln|slnx|csproj>  Workspace root (default: current directory).
+                                   A .sln/.slnx/.csproj file resolves to its directory.
           --output, -o <file>      Write the report to <file> too (dirs created).
           --threshold, -t <n>      CRAP gate (default 8.0). Fails with exit 2 when max > n.
           --format, -f <fmt>       Report format: text (default), json, csv.

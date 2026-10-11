@@ -17,11 +17,9 @@ public sealed class MainTest : IDisposable
         }
         catch (IOException)
         {
-            // best-effort cleanup
         }
         catch (UnauthorizedAccessException)
         {
-            // best-effort cleanup
         }
         GC.SuppressFinalize(this);
     }
@@ -209,7 +207,6 @@ public sealed class MainTest : IDisposable
 
     private static string FindToolDll()
     {
-        // .../test/Crap4CSharp.Tests/bin/<config>/<tfm>/ -> repo/src/Crap4CSharp/bin/<config>/<tfm>/
         var baseDir = AppContext.BaseDirectory;
         var tfm = Path.GetFileName(baseDir.TrimEnd(Path.DirectorySeparatorChar));
         var config = Path.GetFileName(Path.GetDirectoryName(baseDir.TrimEnd(Path.DirectorySeparatorChar))!);

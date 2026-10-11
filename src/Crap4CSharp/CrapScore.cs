@@ -2,8 +2,6 @@ namespace Crap4CSharp;
 
 internal static class CrapScore
 {
-    // Ascending key order (null smallest), so descending puts nulls last.
-    // Shared by the analyzer sort, the CLI sort, and the report formatters.
     internal static readonly Comparer<double?> CrapKeyComparer = Comparer<double?>.Create(
         static (a, b) => (a, b) switch
         {

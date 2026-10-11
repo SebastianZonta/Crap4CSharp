@@ -2,9 +2,6 @@ using System.Globalization;
 
 namespace Crap4CSharp;
 
-// Single home for the literals shared across the tool: layout names,
-// coverage file locations, the coverage-key format, defaults, and
-// user-facing messages. Message values are asserted by tests — keep them stable.
 internal static class ToolConstants
 {
     public const string SrcDirName = "src";
@@ -14,7 +11,6 @@ internal static class ToolConstants
     public const string TestResultsDirName = "TestResults";
     public const string CoberturaFileName = "coverage.cobertura.xml";
 
-    // Coverage key format "class#method:line", built by the parser, read by the analyzer.
     public const string CoverageKeyMethodSeparator = "#";
     public const char CoverageKeyLineSeparator = ':';
 
@@ -33,8 +29,6 @@ internal static class ToolConstants
     public static string CombineRooted(string root, string path) =>
         Path.IsPathRooted(path) ? Path.GetFullPath(path) : Path.GetFullPath(Path.Combine(root, path));
 
-    // Span entry point: callers holding spans materialize once here, at the
-    // framework boundary, instead of once per check upstream.
     public static string CombineRooted(ReadOnlySpan<char> root, ReadOnlySpan<char> path) =>
         Path.IsPathRooted(path) ? Path.GetFullPath(new string(path)) : Path.GetFullPath(Path.Combine(new string(root), new string(path)));
 }

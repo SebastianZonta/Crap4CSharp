@@ -84,7 +84,6 @@ internal static class CliArgumentsParser
             else if ((arg.StartsWith("--", StringComparison.Ordinal) && arg.Length > 2)
                 || (arg.Length == 2 && arg[0] == '-'))
             {
-                // Long flag without '=', or short flag.
                 string flag = new(arg);
                 switch (flag)
                 {

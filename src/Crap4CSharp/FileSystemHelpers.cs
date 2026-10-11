@@ -1,9 +1,5 @@
 namespace Crap4CSharp;
 
-// Single home for file-system concerns shared across modules: the
-// enumeration-options factory (file discovery + coverage-file search),
-// root-containment checks, and race-tolerant stale-coverage deletion.
-// Span overloads keep callers allocation-free until materialization.
 internal static class FileSystemHelpers
 {
     internal static EnumerationOptions SharedEnumeration() => new()
@@ -36,7 +32,6 @@ internal static class FileSystemHelpers
         }
         catch (Exception ex) when (ex is DirectoryNotFoundException || ex is FileNotFoundException)
         {
-            // Lost a delete/create race with a concurrent run; nothing left to do.
         }
         catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
         {

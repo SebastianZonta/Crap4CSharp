@@ -15,11 +15,9 @@ public sealed class CoverageRunnerTest : IDisposable
         }
         catch (IOException)
         {
-            // best-effort cleanup
         }
         catch (UnauthorizedAccessException)
         {
-            // best-effort cleanup
         }
     }
 
@@ -171,7 +169,6 @@ public sealed class CoverageRunnerTest : IDisposable
         var resultsDir = Path.Combine(_tempDir, "TestResults");
         Directory.CreateDirectory(resultsDir);
         File.WriteAllText(Path.Combine(resultsDir, "locked.xml"), "stale");
-        // Drop write permission so the recursive delete fails.
         const UnixFileMode readExecute =
             UnixFileMode.UserRead | UnixFileMode.UserExecute |
             UnixFileMode.GroupRead | UnixFileMode.GroupExecute |

@@ -1,8 +1,5 @@
 namespace Crap4CSharp.Tests;
 
-// Mirror of crap4java.JacocoCoverageParserTest adapted to Cobertura XML
-// (coverlet): per <method>, covered = lines with hits > 0, missed = hits == 0,
-// key "class#method:minLine".
 public sealed class CoberturaCoverageParserTest
 {
     [Fact]
@@ -94,7 +91,6 @@ public sealed class CoberturaCoverageParserTest
 
         var result = CoberturaCoverageParser.Parse(path);
 
-        // Invalid hits -> 0 -> missed; invalid line number -> 0 (mirrors Java parseInt).
         Assert.Equal((1, 0), result["demo.Sample#Alpha:0"]);
     }
 
@@ -112,8 +108,6 @@ public sealed class CoberturaCoverageParserTest
         var settings = CoberturaCoverageParser.NewSecureReaderSettings();
 
         Assert.Equal(System.Xml.DtdProcessing.Prohibit, settings.DtdProcessing);
-        // XmlResolver is set-only in .NET (no getter, unlike Java's factory
-        // features); the null-resolver behavior is covered by RejectsDoctype.
     }
 
     [Fact]
@@ -185,7 +179,6 @@ public sealed class CoberturaCoverageParserTest
 
         var result = CoberturaCoverageParser.Parse(path);
 
-        // Bare has no hits attribute (missed) with a valid line number.
         Assert.Single(result);
         Assert.Equal((1, 0), result["demo.Sample#Bare:11"]);
     }

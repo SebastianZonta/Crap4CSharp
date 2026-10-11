@@ -1,57 +1,23 @@
 # crap4csharp — CRAP analyzer for C# (port of crap4java)
 
 `src/Crap4CSharp` (net10.0 Exe, packed as dotnet tool `crap4csharp`) +
-`test/Crap4CSharp.Tests` (xunit, references src). ImplicitUsings + Nullable on.
+`test/Crap4CSharp.Tests` (xunit, references src). Requires .NET 10 SDK.
 
-## Commands (verified)
+Read the linked doc when its topic comes up; each line below says when.
 
-- `dotnet build Crap4CSharp.sln` — full build (~3s, 0 warnings)
-- `dotnet test Crap4CSharp.sln` — full suite
-- `dotnet test --filter "FullyQualifiedName~<TestName>"` — single test
-- `dotnet run --project src/Crap4CSharp -- <args>` — run locally
-  (`--help`, no args = all of `src/`, `--changed`, `<path...>`)
-- `bash e2e/matrix.sh` — E2E CLI matrix against a locally-packed tool
-  (pack + `dotnet tool install -g --add-source ./nupkg` first; CI `e2e` job)
-
-## Testing (mandatory delegation)
-
-- Dispatch all unit-test work (writing, fixing, running: single files and full suite) through vanilla subagent delegation; the main session never authors or runs tests itself.
-- Each testing subagent validates through the delegate plugin: it spawns one nested validator child via its `execute` → `tools.delegate` call, which re-checks the work (diff scope, green build + suite) and steers it back on course. No exceptions, every time.
-
-## Architecture
-
-`Program.Main` → `CliApplication.Execute` (`src/Crap4CSharp/CliApplication.cs:19`):
-find files → group by module root → coverage per module → analyze → sort
-worst-first → gate on max CRAP `> 8.0`.
-
-- Module root = nearest dir walking up from each file containing `*.csproj`
-  (`CliApplication.cs:138`); coverage runs once per module.
-- Coverage XML expected at `<moduleRoot>/TestResults/**/coverage.cobertura.xml`
-  (first ordinal match); missing → `Warning: Cobertura XML not found…`,
-  scores `N/A` (`CliApplication.cs:63-85`).
-- `--changed` shells `git status --porcelain`; not a git repo here, so that
-  mode has nothing to detect until the tree is versioned.
-- Exit codes: `0` ok (incl. empty selection), `1` usage error, `2` threshold.
-- Test seam: `Program.Run(args, projectRoot, output, err, coverageRunner)` —
-  inject a fake `CoverageRunner`; see `CliApplicationTest.cs` / `MainTest.cs`.
-- Complexity via Roslyn (`CSharpMethodParser.cs`, `Microsoft.CodeAnalysis.CSharp`
-  5.9.0); formula `CRAP = CC^2 * (1-coverage)^3 + CC` (`CrapScore.cs`).
-
-## Release
-
-- Local `Version` in csproj is dev-only; release version comes from the `v*`
-  git tag (see `PUBLISHING.md`). Requires `.NET 10` runtime at install.
-
-## Agent skills
-
-### Issue tracker
-
-Issues live as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Default five canonical labels used as-is. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context layout (one `GLOSSARY.md` + `docs/adr/` at root). See `docs/agents/domain.md`.
+- [`docs/agents/commands.md`](docs/agents/commands.md) — build, test, local
+  run, E2E matrix, and CI order. Read before running or verifying anything.
+- [`docs/agents/architecture.md`](docs/agents/architecture.md) — execution
+  flow, module roots, coverage lookup, exit codes, test seam. Read before
+  changing CLI behavior or analysis.
+- [`src/Crap4CSharp/README.md`](src/Crap4CSharp/README.md) — full CLI flag
+  and exit-code reference. Read when adding flags or writing usage docs.
+- [`PUBLISHING.md`](PUBLISHING.md) — release via `v*` tag + NuGet Trusted
+  Publishing. Read only when publishing.
+- [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md) — local
+  markdown issue tracker (`.scratch/`). Read when a skill says to publish
+  or fetch a ticket.
+- [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md) — maps the
+  five canonical triage labels to this repo's tracker. Read when triaging.
+- [`docs/agents/domain.md`](docs/agents/domain.md) — glossary/ADR convention.
+  (`GLOSSARY.md` / `docs/adr/` do not exist yet — proceed silently per that file.)

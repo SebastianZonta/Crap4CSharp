@@ -110,9 +110,6 @@ internal static class ReportFormatter
         return builder.ToString();
     }
 
-    // In-place span sort of row indexes: single-key CRAP descending with
-    // nulls-last (via the shared key comparer), ties keep input order so the
-    // observable row order matches the previous stable ordering.
     private static int[] SortedIndexes(IReadOnlyList<MethodMetrics> entries)
     {
         var order = new int[entries.Count];
