@@ -14,6 +14,7 @@ internal static class CliArgumentsParser
         var minComplexity = 1;
         var noCoverage = false;
         var noProgress = false;
+        var violationsOnly = false;
         var changed = false;
         var help = false;
         var version = false;
@@ -57,6 +58,11 @@ internal static class CliArgumentsParser
                 {
                     RejectValue(name, hasInline);
                     noProgress = true;
+                }
+                else if (IsFlag(name, "--violations-only"))
+                {
+                    RejectValue(name, hasInline);
+                    violationsOnly = true;
                 }
                 else if (IsFlag(name, "--path"))
                 {
@@ -109,6 +115,9 @@ internal static class CliArgumentsParser
                     case "--no-progress":
                         noProgress = true;
                         break;
+                    case "--violations-only":
+                        violationsOnly = true;
+                        break;
                     case "--path":
                     case "--output":
                     case "-o":
@@ -150,17 +159,17 @@ internal static class CliArgumentsParser
             }
             return new CliArguments(
                 CliMode.ChangedSrc, [], projectPath, outputPath,
-                threshold, format, top, minComplexity, noCoverage, noProgress);
+                threshold, format, top, minComplexity, noCoverage, noProgress, violationsOnly);
         }
         if (values is null || values.Count == 0)
         {
             return new CliArguments(
                 CliMode.AllSrc, [], projectPath, outputPath,
-                threshold, format, top, minComplexity, noCoverage, noProgress);
+                threshold, format, top, minComplexity, noCoverage, noProgress, violationsOnly);
         }
         return new CliArguments(
             CliMode.ExplicitFiles, values.ToArray(), projectPath, outputPath,
-            threshold, format, top, minComplexity, noCoverage, noProgress);
+            threshold, format, top, minComplexity, noCoverage, noProgress, violationsOnly);
     }
 
     private static bool IsFlag(ReadOnlySpan<char> name, ReadOnlySpan<char> flag) =>

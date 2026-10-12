@@ -70,6 +70,7 @@ internal static class Program
           --format, -f <fmt>       Report format: text (default), json, csv.
           --top <n>                Show only the n worst methods.
           --min-cc <n>             Hide methods with complexity below n (default 1).
+          --violations-only        Show only methods with CRAP above the threshold.
           --no-coverage            Skip 'dotnet test' coverage run; reuse existing XML.
           --no-progress            Disable the progress spinner on stderr.
           --help, -h               Print this help message.

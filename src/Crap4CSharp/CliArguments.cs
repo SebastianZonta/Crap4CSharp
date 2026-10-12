@@ -10,4 +10,5 @@ internal sealed record CliArguments(
     int? Top = null,
     int MinComplexity = 1,
     bool NoCoverage = false,
-    bool NoProgress = false);
+    bool NoProgress = false,
+    bool ViolationsOnly = false);

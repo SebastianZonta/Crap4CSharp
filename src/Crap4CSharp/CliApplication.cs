@@ -76,6 +76,11 @@ internal sealed class CliApplication
         {
             metrics.RemoveAll(m => m.Complexity < parsed.MinComplexity);
         }
+        var max = metrics.MaxCrap();
+        if (parsed.ViolationsOnly)
+        {
+            metrics.RemoveAll(m => m.CrapScore is null || m.CrapScore.Value <= parsed.Threshold);
+        }
         if (parsed.Top.HasValue && metrics.Count > parsed.Top.Value)
         {
             metrics.RemoveRange(parsed.Top.Value, metrics.Count - parsed.Top.Value);
@@ -87,7 +92,6 @@ internal sealed class CliApplication
             await WriteReportFileAsync(parsed.OutputPath, report, cancellationToken).ConfigureAwait(false);
         }
 
-        var max = metrics.MaxCrap();
         if (ThresholdExceeded(max, parsed.Threshold))
         {
             await _err.WriteLineAsync(ToolConstants.ThresholdExceededMessage(max, parsed.Threshold)).ConfigureAwait(false);

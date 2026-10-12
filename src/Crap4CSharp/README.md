@@ -75,6 +75,8 @@ crap4csharp --top 20 --min-cc 3 --no-coverage
 - `--format, -f <text|json|csv>` — report format (default `text`).
 - `--top <n>` — show only the `n` worst methods.
 - `--min-cc <n>` — hide methods with complexity below `n` (default `1`).
+- `--violations-only` — show only methods with CRAP above the threshold
+  (`N/A` rows hidden; the exit-`2` gate still uses the full result set).
 - `--no-coverage` — skip the `dotnet test` coverage run; reuse existing
   `TestResults/**/coverage.cobertura.xml` (missing → `N/A`).
 - `--no-progress` — disable the Braille progress spinner on stderr
