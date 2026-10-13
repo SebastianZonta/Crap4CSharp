@@ -52,7 +52,64 @@ internal static class ChangedFileDetector
         return ParseChangedFiles(projectRoot, stdout);
     }
 
-    private static Process StartGitProcess(ProcessStartInfo startInfo)
+    public static IReadOnlyList<string> DiffCsFiles(string projectRoot, string diffRef) =>
+        DiffCsFilesAsync(projectRoot, diffRef).GetAwaiter().GetResult();
+
+    public static async Task<IReadOnlyList<string>> DiffCsFilesAsync(
+        string projectRoot, string diffRef, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(projectRoot);
+        ArgumentNullException.ThrowIfNull(diffRef);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!Directory.Exists(projectRoot))
+        {
+            throw new DirectoryNotFoundException("Project directory not found: " + projectRoot);
+        }
+
+        var command = $"git diff '{diffRef}...HEAD'";
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "git",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        startInfo.ArgumentList.Add("-C");
+        startInfo.ArgumentList.Add(projectRoot);
+        startInfo.ArgumentList.Add("diff");
+        startInfo.ArgumentList.Add("--name-only");
+        startInfo.ArgumentList.Add("-z");
+        startInfo.ArgumentList.Add("--no-renames");
+        startInfo.ArgumentList.Add("--diff-filter=ACMR");
+        startInfo.ArgumentList.Add(diffRef + "...HEAD");
+        startInfo.ArgumentList.Add("--");
+
+        using var process = StartGitProcess(startInfo, command);
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            process.TryKillTree();
+            throw;
+        }
+        var stdout = await stdoutTask.ConfigureAwait(false);
+        var stderr = await stderrTask.ConfigureAwait(false);
+        if (process.ExitCode != 0)
+        {
+            var detail = (stdout + stderr).Trim();
+            throw new InvalidOperationException(
+                command + " failed with exit " + process.ExitCode + ": " + detail + ". "
+                + "Hint: ensure the base ref is available locally (git fetch).");
+        }
+
+        return ParseDiffFiles(projectRoot, stdout);
+    }
+
+    private static Process StartGitProcess(ProcessStartInfo startInfo, string command = "git status")
     {
         Process? process;
         try
@@ -62,10 +119,10 @@ internal static class ChangedFileDetector
         catch (Exception ex)
         {
             throw new InvalidOperationException(
-                "git status failed: could not start git process", ex);
+                command + " failed: could not start git process", ex);
         }
         return process
-            ?? throw new InvalidOperationException("git status failed: could not start git process");
+            ?? throw new InvalidOperationException(command + " failed: could not start git process");
     }
 
     public static IReadOnlyList<string> ChangedCsFilesUnderSrc(string projectRoot) =>
@@ -75,23 +132,39 @@ internal static class ChangedFileDetector
         string projectRoot, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(projectRoot);
-        var src = Path.GetFullPath(Path.Combine(projectRoot, ToolConstants.SrcDirName));
         var changed = await ChangedCsFilesAsync(projectRoot, cancellationToken).ConfigureAwait(false);
+        return ScopeToSrc(projectRoot, changed);
+    }
+
+    public static IReadOnlyList<string> DiffCsFilesUnderSrc(string projectRoot, string diffRef) =>
+        DiffCsFilesUnderSrcAsync(projectRoot, diffRef).GetAwaiter().GetResult();
+
+    public static async Task<IReadOnlyList<string>> DiffCsFilesUnderSrcAsync(
+        string projectRoot, string diffRef, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(projectRoot);
+        var files = await DiffCsFilesAsync(projectRoot, diffRef, cancellationToken).ConfigureAwait(false);
+        return ScopeToSrc(projectRoot, files);
+    }
+
+    private static IReadOnlyList<string> ScopeToSrc(string projectRoot, IReadOnlyList<string> files)
+    {
+        var src = Path.GetFullPath(Path.Combine(projectRoot, ToolConstants.SrcDirName));
         if (!Directory.Exists(src))
         {
             // No src/ layout (mirrors no-args discovery): fall back to the whole tree.
-            return changed;
+            return files;
         }
         var prefix = src + Path.DirectorySeparatorChar;
-        List<string> files = [];
-        foreach (var path in changed)
+        List<string> scoped = [];
+        foreach (var path in files)
         {
             if (path.IsUnderDirectory(src, prefix))
             {
-                files.Add(path);
+                scoped.Add(path);
             }
         }
-        return files.ToArray();
+        return scoped.ToArray();
     }
 
     private static string[] ParseChangedFiles(ReadOnlySpan<char> root, ReadOnlySpan<char> stdout)
@@ -122,6 +195,46 @@ internal static class ChangedFileDetector
         }
         files.Sort(StringComparer.Ordinal);
         return files.ToArray();
+    }
+
+    private static string[] ParseDiffFiles(ReadOnlySpan<char> root, ReadOnlySpan<char> stdout)
+    {
+        List<string> files = [];
+        var output = stdout;
+        var start = 0;
+        while (true)
+        {
+            var nul = output.Slice(start).IndexOf('\0');
+            var entry = nul < 0
+                ? output.Slice(start)
+                : output.Slice(start, nul);
+            if (entry.Length > 0 && entry[entry.Length - 1] == '\r')
+            {
+                entry = entry.Slice(0, entry.Length - 1);
+            }
+            var file = ParseDiffEntry(root, entry);
+            if (file is not null)
+            {
+                files.Add(file);
+            }
+            if (nul < 0)
+            {
+                break;
+            }
+            start += nul + 1;
+        }
+        files.Sort(StringComparer.Ordinal);
+        return files.ToArray();
+    }
+
+    private static string? ParseDiffEntry(ReadOnlySpan<char> root, ReadOnlySpan<char> entry)
+    {
+        if (entry.IsEmpty || !IsCsPath(entry))
+        {
+            return null;
+        }
+        var full = ToolConstants.CombineRooted(root, entry);
+        return File.Exists(full) ? full : null;
     }
 
     private static string? ParseStatusLine(ReadOnlySpan<char> root, ReadOnlySpan<char> line)

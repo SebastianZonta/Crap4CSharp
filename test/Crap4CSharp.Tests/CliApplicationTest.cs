@@ -511,6 +511,100 @@ public sealed class CliApplicationTest : IDisposable
     }
 
     [Fact]
+    public async Task DiffModeAnalyzesOnlyFilesChangedSinceRef()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        Run("git init", _tempDir);
+        Run("git config user.email test@example.com", _tempDir);
+        Run("git config user.name test", _tempDir);
+
+        var moduleRoot = Path.Combine(_tempDir, "Domain");
+        Directory.CreateDirectory(moduleRoot);
+        var changed = Path.Combine(moduleRoot, "Sample.cs");
+        await File.WriteAllTextAsync(changed, "class Sample {}\n");
+        await File.WriteAllTextAsync(Path.Combine(moduleRoot, "Other.cs"), "class Other {}\n");
+        Run("git add .", _tempDir);
+        Run("git commit -m init", _tempDir);
+        Run("git branch base", _tempDir);
+        await File.WriteAllTextAsync(changed, "class Sample { int M() { return 1; } }\n");
+        Run("git commit -am second", _tempDir);
+
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = await new CliApplication(_tempDir, output, err, _noopCoverage).ExecuteAsync(["--diff", "base"]);
+
+        Assert.Equal(0, exit);
+        Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Found 1 C# file(s).", err.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Warning: Cobertura XML not found", err.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiffModeWithUnknownRefExitsOneWithoutThrowing()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        Run("git init", _tempDir);
+
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute(["--diff", "base"]);
+
+        Assert.Equal(1, exit);
+        Assert.Contains("base", err.ToString(), StringComparison.Ordinal);
+        Assert.Contains("fetch", err.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiffModeWithEmptyDiffReportsNoFiles()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        Run("git init", _tempDir);
+        Run("git config user.email test@example.com", _tempDir);
+        Run("git config user.name test", _tempDir);
+
+        var moduleRoot = Path.Combine(_tempDir, "Domain");
+        Directory.CreateDirectory(moduleRoot);
+        File.WriteAllText(Path.Combine(moduleRoot, "Sample.cs"), "class Sample {}\n");
+        Run("git add .", _tempDir);
+        Run("git commit -m init", _tempDir);
+        Run("git branch base", _tempDir);
+
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute(["--diff", "base"]);
+
+        Assert.Equal(0, exit);
+        Assert.Contains("No C# files to analyze.", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiffOutsideGitRepoExitsOneWithoutThrowing()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute(["--diff", "base"]);
+
+        Assert.Equal(1, exit);
+        Assert.Contains("git diff", err.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SortsNullScoresFromModuleWithoutCoverageAfterScoredModule()
     {
         var moduleA = Path.Combine(_tempDir, "aaa");

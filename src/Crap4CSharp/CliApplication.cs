@@ -380,6 +380,8 @@ internal sealed class CliApplication
             CliMode.AllSrc => SourceFileFinder.FindAllCsFilesForDirectory(effectiveRoot),
             CliMode.ChangedSrc => await ChangedFileDetector
                 .ChangedCsFilesUnderSrcAsync(effectiveRoot, cancellationToken).ConfigureAwait(false),
+            CliMode.DiffRef => await ChangedFileDetector
+                .DiffCsFilesUnderSrcAsync(effectiveRoot, parsed.DiffRef!, cancellationToken).ConfigureAwait(false),
             CliMode.ExplicitFiles => ExplicitFiles(parsed.FileArgs, effectiveRoot),
             _ => [],
         };

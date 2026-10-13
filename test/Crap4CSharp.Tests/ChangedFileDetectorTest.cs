@@ -278,11 +278,169 @@ public sealed class ChangedFileDetectorTest : IDisposable
         Assert.Equal(new[] { Path.Combine(src, "New.cs") }, changed);
     }
 
+    [Fact]
+    public void DiffSelectsAddedAndModifiedFilesExcludesDeletions()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        Run("git init", _tempDir);
+        Run("git config user.email test@example.com", _tempDir);
+        Run("git config user.name test", _tempDir);
+
+        var src = Path.Combine(_tempDir, "src", "Demo");
+        Directory.CreateDirectory(src);
+        var modified = Path.Combine(src, "Modified.cs");
+        File.WriteAllText(modified, "class Modified {}\n");
+        File.WriteAllText(Path.Combine(src, "Doomed.cs"), "class Doomed {}\n");
+        File.WriteAllText(Path.Combine(_tempDir, "notes.txt"), "v1\n");
+        Run("git add .", _tempDir);
+        Run("git commit -m init", _tempDir);
+        Run("git branch base", _tempDir);
+
+        File.WriteAllText(modified, "class Modified { int M() { return 1; } }\n");
+        var added = Path.Combine(src, "Added.cs");
+        File.WriteAllText(added, "class Added {}\n");
+        Run("git rm src/Demo/Doomed.cs", _tempDir);
+        File.WriteAllText(Path.Combine(_tempDir, "notes.txt"), "v2\n");
+        Run("git add .", _tempDir);
+        Run("git commit -m second", _tempDir);
+        File.WriteAllText(Path.Combine(src, "Untracked.cs"), "class Untracked {}\n");
+
+        var diff = ChangedFileDetector.DiffCsFiles(_tempDir, "base");
+
+        Assert.Equal(new[] { added, modified }, diff);
+    }
+
+    [Fact]
+    public void DiffRespectsSrcScope()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        Run("git init", _tempDir);
+        Run("git config user.email test@example.com", _tempDir);
+        Run("git config user.name test", _tempDir);
+
+        var src = Path.Combine(_tempDir, "src", "Demo");
+        var tests = Path.Combine(_tempDir, "tests");
+        Directory.CreateDirectory(src);
+        Directory.CreateDirectory(tests);
+        var tracked = Path.Combine(src, "Tracked.cs");
+        File.WriteAllText(tracked, "class Tracked {}\n");
+        File.WriteAllText(Path.Combine(tests, "Other.cs"), "class Other {}\n");
+        Run("git add .", _tempDir);
+        Run("git commit -m init", _tempDir);
+        Run("git branch base", _tempDir);
+
+        File.WriteAllText(tracked, "class Tracked { int M() { return 1; } }\n");
+        File.WriteAllText(Path.Combine(tests, "Other.cs"), "class Other { int M() { return 1; } }\n");
+        Run("git commit -am second", _tempDir);
+
+        var diff = ChangedFileDetector.DiffCsFilesUnderSrc(_tempDir, "base");
+
+        Assert.Equal(new[] { tracked }, diff);
+    }
+
+    [Fact]
+    public void DiffFallsBackToWholeTreeWhenSrcIsMissing()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        Run("git init", _tempDir);
+        Run("git config user.email test@example.com", _tempDir);
+        Run("git config user.name test", _tempDir);
+
+        var moduleDir = Path.Combine(_tempDir, "Domain");
+        Directory.CreateDirectory(moduleDir);
+        var tracked = Path.Combine(moduleDir, "Tracked.cs");
+        File.WriteAllText(tracked, "class Tracked {}\n");
+        Run("git add .", _tempDir);
+        Run("git commit -m init", _tempDir);
+        Run("git branch base", _tempDir);
+
+        File.WriteAllText(tracked, "class Tracked { int M() { return 1; } }\n");
+        Run("git commit -am second", _tempDir);
+
+        var diff = ChangedFileDetector.DiffCsFilesUnderSrc(_tempDir, "base");
+
+        Assert.Equal(new[] { tracked }, diff);
+    }
+
+    [Fact]
+    public void DiffUnknownRefThrowsWithFetchHint()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        Run("git init", _tempDir);
+        Run("git config user.email test@example.com", _tempDir);
+        Run("git config user.name test", _tempDir);
+        File.WriteAllText(Path.Combine(_tempDir, "Tracked.cs"), "class Tracked {}\n");
+        Run("git add .", _tempDir);
+        Run("git commit -m init", _tempDir);
+
+        var error = Assert.Throws<InvalidOperationException>(
+            () => ChangedFileDetector.DiffCsFiles(_tempDir, "no-such-ref"));
+
+        Assert.Contains("no-such-ref", error.Message, StringComparison.Ordinal);
+        Assert.Contains("fetch", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiffOutsideGitRepoThrows()
+    {
+        var error = Assert.Throws<InvalidOperationException>(
+            () => ChangedFileDetector.DiffCsFiles(_tempDir, "base"));
+
+        Assert.Contains("not a git repository", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task DiffAsyncReturnsSameResultsAsSync()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        Run("git init", _tempDir);
+        Run("git config user.email test@example.com", _tempDir);
+        Run("git config user.name test", _tempDir);
+
+        var src = Path.Combine(_tempDir, "src");
+        Directory.CreateDirectory(src);
+        var tracked = Path.Combine(src, "Tracked.cs");
+        await File.WriteAllTextAsync(tracked, "class Tracked {}\n");
+        Run("git add .", _tempDir);
+        Run("git commit -m init", _tempDir);
+        Run("git branch base", _tempDir);
+        await File.WriteAllTextAsync(tracked, "class Tracked { int M() { return 1; } }\n");
+        Run("git commit -am second", _tempDir);
+
+        Assert.Equal(
+            SyncDiffFiles(_tempDir, "base"),
+            await ChangedFileDetector.DiffCsFilesAsync(_tempDir, "base"));
+        Assert.Equal(
+            SyncDiffFilesUnderSrc(_tempDir, "base"),
+            await ChangedFileDetector.DiffCsFilesUnderSrcAsync(_tempDir, "base"));
+    }
+
     private static IReadOnlyList<string> SyncChangedFiles(string dir) =>
         ChangedFileDetector.ChangedCsFiles(dir);
 
     private static IReadOnlyList<string> SyncChangedFilesUnderSrc(string dir) =>
         ChangedFileDetector.ChangedCsFilesUnderSrc(dir);
+
+    private static IReadOnlyList<string> SyncDiffFiles(string dir, string diffRef) =>
+        ChangedFileDetector.DiffCsFiles(dir, diffRef);
+
+    private static IReadOnlyList<string> SyncDiffFilesUnderSrc(string dir, string diffRef) =>
+        ChangedFileDetector.DiffCsFilesUnderSrc(dir, diffRef);
 
     private static void Run(string command, string dir)
     {
