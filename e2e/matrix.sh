@@ -69,12 +69,15 @@ run() { # out err -- args...  (runs tool, stores exit in $rc)
     $CRAP "$@" >"$out" 2>"$err"; rc=$?
 }
 
-# 1. no-args: live coverage run, real scores, silent stderr.
+# 1. no-args: live coverage run, real scores, progress log on stderr, pure stdout.
 run out.txt err.txt
 expect_exit "no-args" 0 "$rc"
 expect_contains "no-args real coverage" "100.0%" out.txt
 expect_contains "no-args worst method" "Compute" out.txt
-if [ -s err.txt ]; then fail "no-args silent stderr"; sed 's/^/  | /' err.txt; else pass "no-args silent stderr"; fi
+expect_contains "no-args found summary" "Found 1 C# file(s)." err.txt
+expect_contains "no-args command echo" "$ dotnet test" err.txt
+expect_contains "no-args analyzing line" "Analyzing src/Demo/Calc.cs" err.txt
+if grep -qF "Found" out.txt; then fail "no-args pure stdout"; else pass "no-args pure stdout"; fi
 
 # 2. json format (reuse coverage).
 run out.txt err.txt --format json --no-coverage
