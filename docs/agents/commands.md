@@ -17,7 +17,7 @@ does not state.
 ## Run locally
 
 - `dotnet run --project src/Crap4CSharp -- <args>` — run without installing.
-  Flags: `--help`, no args, `--changed`, `<path...>`, `--path`,
+  Flags: `--help`, no args, `--changed`, `--diff <ref>`, `<path...>`, `--path`,
   `--threshold`, `--format text|json|csv`, `--top`, `--min-cc`,
   `--no-coverage` (see `src/Crap4CSharp/README.md` for semantics).
 

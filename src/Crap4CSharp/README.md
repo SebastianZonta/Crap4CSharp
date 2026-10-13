@@ -56,6 +56,7 @@ crap4csharp --help
 crap4csharp --version
 crap4csharp
 crap4csharp --changed
+crap4csharp --diff origin/develop
 crap4csharp src/MyApp/Sample.cs
 crap4csharp module-a module-b
 crap4csharp --path ./MySolution.sln
@@ -65,6 +66,10 @@ crap4csharp --top 20 --min-cc 3 --no-coverage
 
 - `(no args)` — analyze all C# files under `<root>/src/`
 - `--changed` — analyze changed C# files under `<root>/src/` (`git status --porcelain`), else whole tree when no `src/` exists
+- `--diff <ref>` — Analyze committed C# changes between `<ref>` and HEAD (merge-base..HEAD):
+  committed additions and modifications only (deletions excluded; untracked files excluded — use `--changed` for those),
+  scoped to `<root>/src/`, else whole tree when no `src/` exists. Unknown ref or non-git directory fails
+  with exit `1` plus a fetch hint. Cannot be combined with file arguments or `--changed`.
 - `<path...>` — analyze files, or for directory args analyze `<dir>/src/**/*.cs`
 - `--path <dir|sln|csproj>` — workspace root (default: current directory).
   A `.sln`/`.csproj` file resolves to its directory. Positional paths resolve
@@ -109,7 +114,8 @@ Exit code `2`: the worst score (`16.8`) exceeds the default threshold (`8.0`).
 
 - `0` success, threshold respected (includes empty selection)
 - `1` invalid CLI usage (unknown option, bad flag value,
-  `--changed` cannot be combined with file arguments)
+  `--changed` cannot be combined with file arguments,
+  `--diff` cannot be combined with file arguments or `--changed`)
 - `2` CRAP threshold exceeded (`>` threshold, default `8.0`)
 
 ## Limitations (known)
