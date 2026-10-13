@@ -29,6 +29,31 @@ public sealed class CliApplicationTest : IDisposable
         public int Run(IReadOnlyList<string> command, string directory) => _run(command, directory);
     }
 
+    private sealed class StreamingFakeExecutor : ICommandExecutor
+    {
+        private readonly int _exitCode;
+        private readonly string[] _streamedLines;
+        public StreamingFakeExecutor(int exitCode, params string[] streamedLines)
+        {
+            _exitCode = exitCode;
+            _streamedLines = streamedLines;
+        }
+        public int Run(IReadOnlyList<string> command, string directory) => _exitCode;
+        public async Task<int> RunAsync(
+            IReadOnlyList<string> command, string directory, TextWriter? output,
+            CancellationToken cancellationToken = default)
+        {
+            foreach (var line in _streamedLines)
+            {
+                if (output is not null)
+                {
+                    await output.WriteLineAsync(line).ConfigureAwait(false);
+                }
+            }
+            return _exitCode;
+        }
+    }
+
     private static readonly CoverageRunner _noopCoverage =
         new(new FakeExecutor((_, _) => 0));
 
@@ -816,6 +841,74 @@ public sealed class CliApplicationTest : IDisposable
         Assert.Equal(0, exit);
         Assert.Equal(0, calls);
         Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CoverageRunEchoesCommandAndStreamsOutput()
+    {
+        var rel = WriteTwoMethodSample();
+        var coverageRunner = new CoverageRunner(new StreamingFakeExecutor(0, "fake-build-output"));
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
+            .Execute([rel]);
+
+        Assert.Equal(0, exit);
+        var log = err.ToString();
+        Assert.Contains("$ dotnet test", log, StringComparison.Ordinal);
+        Assert.Contains(" in ", log, StringComparison.Ordinal);
+        Assert.Contains("fake-build-output", log, StringComparison.Ordinal);
+        Assert.DoesNotContain("fake-build-output", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NoProgressSilencesCommandEchoAndStream()
+    {
+        var rel = WriteTwoMethodSample();
+        var coverageRunner = new CoverageRunner(new StreamingFakeExecutor(0, "fake-build-output"));
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
+            .Execute([rel, "--no-progress"]);
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain("$ dotnet test", err.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("fake-build-output", err.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CoverageFailureKeepsStreamedOutput()
+    {
+        var rel = WriteTwoMethodSample();
+        var coverageRunner = new CoverageRunner(new StreamingFakeExecutor(1, "boom-output"));
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
+            .Execute([rel]);
+
+        Assert.Equal(1, exit);
+        Assert.Contains("boom-output", err.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Coverage command failed", err.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NoCoverageSkipsCommandEcho()
+    {
+        var rel = WriteTwoMethodSample();
+        var coverageRunner = new CoverageRunner(new StreamingFakeExecutor(0, "fake-build-output"));
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
+            .Execute([rel, "--no-coverage"]);
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain("$ dotnet test", err.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("fake-build-output", err.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

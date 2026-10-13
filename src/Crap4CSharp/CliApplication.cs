@@ -70,7 +70,7 @@ internal sealed class CliApplication
         }
 
         var metrics = await AnalyzeByModuleAsync(
-            filesToAnalyze, effectiveRoot, effectivePrefix, parsed.NoCoverage, showProgress, cancellationToken).ConfigureAwait(false);
+            filesToAnalyze, effectiveRoot, effectivePrefix, parsed.NoCoverage, !parsed.NoProgress, showProgress, cancellationToken).ConfigureAwait(false);
         metrics.Sort(CrapScore.CompareByCrapDesc);
         if (parsed.MinComplexity > 1)
         {
@@ -134,7 +134,7 @@ internal sealed class CliApplication
 
     private async Task<List<MethodMetrics>> AnalyzeByModuleAsync(
         IReadOnlyList<string> filesToAnalyze, string effectiveRoot, string effectivePrefix,
-        bool noCoverage, bool showProgress, CancellationToken cancellationToken)
+        bool noCoverage, bool logCoverage, bool showProgress, CancellationToken cancellationToken)
     {
         List<MethodMetrics> metrics = [];
         foreach (var entry in GroupByModuleRoot(filesToAnalyze, effectiveRoot, effectivePrefix))
@@ -143,10 +143,13 @@ internal sealed class CliApplication
             if (!noCoverage)
             {
                 var testTarget = TestTargetFor(effectiveRoot, moduleRoot);
-                await using (ProgressSpinner.StartIfEnabled(_err, "Running coverage…", showProgress))
+                if (logCoverage)
                 {
-                    await _coverageRunner.GenerateCoverageAsync(testTarget, moduleRoot, cancellationToken).ConfigureAwait(false);
+                    await _err.WriteLineAsync(
+                        FormatCommandEcho(CoverageRunner.CoverageCommand(testTarget, moduleRoot), moduleRoot, effectiveRoot)).ConfigureAwait(false);
                 }
+                await _coverageRunner.GenerateCoverageAsync(
+                    testTarget, moduleRoot, logCoverage ? _err : null, cancellationToken).ConfigureAwait(false);
             }
             var coberturaXml = FindCoberturaXml(moduleRoot);
             if (coberturaXml is null)
@@ -162,6 +165,28 @@ internal sealed class CliApplication
         }
         return metrics;
     }
+
+    private static string FormatCommandEcho(
+        IReadOnlyList<string> command, string workingDirectory, string effectiveRoot) =>
+        "$ " + string.Join(" ", command.Select(a => QuoteIfNeeded(RelativizeIfUnder(a, effectiveRoot))))
+        + " in " + RelativizeIfUnder(workingDirectory, effectiveRoot);
+
+    private static string RelativizeIfUnder(string path, string effectiveRoot)
+    {
+        if (string.Equals(path, effectiveRoot, StringComparison.Ordinal))
+        {
+            return ".";
+        }
+        var prefix = effectiveRoot + Path.DirectorySeparatorChar;
+        if (path.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return Path.GetRelativePath(effectiveRoot, path);
+        }
+        return path;
+    }
+
+    private static string QuoteIfNeeded(string arg) =>
+        arg.Contains(' ', StringComparison.Ordinal) ? "\"" + arg + "\"" : arg;
 
     private static string? FindCoberturaXml(string moduleRoot)
     {
