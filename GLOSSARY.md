@@ -1,7 +1,10 @@
 # Glossary
 
 - **file discovery**: finding the C# files to analyze (all/src, changed, or explicit paths).
+- **changed files**: uncommitted `.cs` changes from `git status --porcelain` (tracked modifications plus untracked files), scoped to `<root>/src/`, or to the whole tree when no `src/` exists.
 - **coverage run**: the `dotnet test` XPlat Code Coverage step per module.
 - **analysis**: parsing methods (Roslyn) and scoring CRAP from complexity + Cobertura coverage.
-- **progress indicator**: Braille spinner on stderr for discovery/coverage/analysis; stdout stays pipe-clean.
+- **command echo**: the one-line `$ dotnet test … in <dir>` summary of the coverage invocation on stderr.
+- **file list**: the `Found N C# file(s).` summary plus one `Analyzing <path>` line per file on stderr.
+- **progress log**: all human-facing stderr lines (command echo + streamed child output + file list + warnings/errors).
 - **violation**: an analyzed method whose numeric CRAP score is strictly greater than the effective threshold (`N/A` rows are never violations).

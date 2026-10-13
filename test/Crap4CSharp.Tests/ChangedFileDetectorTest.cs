@@ -126,6 +126,33 @@ public sealed class ChangedFileDetectorTest : IDisposable
     }
 
     [Fact]
+    public void FallsBackToWholeTreeWhenSrcIsMissing()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        Run("git init", _tempDir);
+        Run("git config user.email test@example.com", _tempDir);
+        Run("git config user.name test", _tempDir);
+
+        var moduleDir = Path.Combine(_tempDir, "Domain");
+        Directory.CreateDirectory(moduleDir);
+        var tracked = Path.Combine(moduleDir, "Tracked.cs");
+        File.WriteAllText(tracked, "class Tracked {}\n");
+        Run("git add .", _tempDir);
+        Run("git commit -m init", _tempDir);
+
+        File.WriteAllText(tracked, "class Tracked { int x = 1; }\n");
+        var untracked = Path.Combine(moduleDir, "NewFile.cs");
+        File.WriteAllText(untracked, "class NewFile {}\n");
+
+        var changed = ChangedFileDetector.ChangedCsFilesUnderSrc(_tempDir);
+
+        Assert.Equal(new[] { untracked, tracked }, changed);
+    }
+
+    [Fact]
     public void CandidateLineRequiresAtLeastFourCharacters()
     {
         Assert.False(ChangedFileDetector.IsCandidateLine(null));

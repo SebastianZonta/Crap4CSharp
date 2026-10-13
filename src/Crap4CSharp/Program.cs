@@ -59,7 +59,7 @@ internal static class Program
 
         Modes (positional, backward compatible):
           (no args)            Analyze all C# files under <root>/src/ (whole tree if no src/)
-          --changed            Analyze changed C# files under <root>/src/ (git status)
+          --changed            Analyze changed C# files under <root>/src/ (whole tree if no src/)
           <path...>            Analyze files; directories, .sln/.slnx and .csproj expand to all C# (skips bin/obj)
 
         Options:

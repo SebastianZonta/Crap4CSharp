@@ -76,9 +76,15 @@ internal static class ChangedFileDetector
     {
         ArgumentNullException.ThrowIfNull(projectRoot);
         var src = Path.GetFullPath(Path.Combine(projectRoot, ToolConstants.SrcDirName));
+        var changed = await ChangedCsFilesAsync(projectRoot, cancellationToken).ConfigureAwait(false);
+        if (!Directory.Exists(src))
+        {
+            // No src/ layout (mirrors no-args discovery): fall back to the whole tree.
+            return changed;
+        }
         var prefix = src + Path.DirectorySeparatorChar;
         List<string> files = [];
-        foreach (var path in await ChangedCsFilesAsync(projectRoot, cancellationToken).ConfigureAwait(false))
+        foreach (var path in changed)
         {
             if (path.IsUnderDirectory(src, prefix))
             {

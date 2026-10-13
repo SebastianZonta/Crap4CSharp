@@ -64,7 +64,7 @@ crap4csharp --top 20 --min-cc 3 --no-coverage
 ```
 
 - `(no args)` — analyze all C# files under `<root>/src/`
-- `--changed` — analyze changed C# files under `<root>/src/` (`git status --porcelain`)
+- `--changed` — analyze changed C# files under `<root>/src/` (`git status --porcelain`), else whole tree when no `src/` exists
 - `<path...>` — analyze files, or for directory args analyze `<dir>/src/**/*.cs`
 - `--path <dir|sln|csproj>` — workspace root (default: current directory).
   A `.sln`/`.csproj` file resolves to its directory. Positional paths resolve

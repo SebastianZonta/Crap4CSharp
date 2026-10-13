@@ -482,6 +482,35 @@ public sealed class CliApplicationTest : IDisposable
     }
 
     [Fact]
+    public async Task ChangedModeFallsBackToWholeTreeWhenSrcIsMissing()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        Run("git init", _tempDir);
+        Run("git config user.email test@example.com", _tempDir);
+        Run("git config user.name test", _tempDir);
+
+        var moduleRoot = Path.Combine(_tempDir, "Domain");
+        Directory.CreateDirectory(moduleRoot);
+        var changed = Path.Combine(moduleRoot, "Sample.cs");
+        await File.WriteAllTextAsync(changed, "class Sample {}\n");
+        Run("git add .", _tempDir);
+        Run("git commit -m init", _tempDir);
+        await File.WriteAllTextAsync(changed, "class Sample { int M() { return 1; } }\n");
+
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = await new CliApplication(_tempDir, output, err, _noopCoverage).ExecuteAsync(["--changed"]);
+
+        Assert.Equal(0, exit);
+        Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Warning: Cobertura XML not found", err.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SortsNullScoresFromModuleWithoutCoverageAfterScoredModule()
     {
         var moduleA = Path.Combine(_tempDir, "aaa");
