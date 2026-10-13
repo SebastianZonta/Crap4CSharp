@@ -61,6 +61,39 @@ public sealed class ProcessCommandExecutorTest : IDisposable
     }
 
     [Fact]
+    public async Task StreamsChildStdoutAndStderrVerbatimToWriter()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        using var writer = new StringWriter();
+
+        var exit = await new ProcessCommandExecutor().RunAsync(
+            ["/bin/sh", "-c", "echo out; echo err >&2; exit 5"], _tempDir, writer);
+
+        Assert.Equal(5, exit);
+        var lines = writer.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(2, lines.Length);
+        Assert.Contains("out", lines);
+        Assert.Contains("err", lines);
+    }
+
+    [Fact]
+    public async Task NullWriterDrainsWithoutWriting()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        var exit = await new ProcessCommandExecutor().RunAsync(
+            ["/bin/sh", "-c", "echo out; echo err >&2; exit 5"], _tempDir, null);
+
+        Assert.Equal(5, exit);
+    }
+
+    [Fact]
     public async Task MissingWorkingDirectoryThrowsDirectoryNotFound()
     {
         var missing = Path.Combine(_tempDir, "does-not-exist");

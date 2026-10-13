@@ -5,10 +5,15 @@ namespace Crap4CSharp;
 internal sealed class ProcessCommandExecutor : ICommandExecutor
 {
     public int Run(IReadOnlyList<string> args, string workingDirectory) =>
-        RunAsync(args, workingDirectory).GetAwaiter().GetResult();
+        RunAsync(args, workingDirectory, null).GetAwaiter().GetResult();
+
+    public Task<int> RunAsync(
+        IReadOnlyList<string> args, string workingDirectory, CancellationToken cancellationToken = default) =>
+        RunAsync(args, workingDirectory, null, cancellationToken);
 
     public async Task<int> RunAsync(
-        IReadOnlyList<string> args, string workingDirectory, CancellationToken cancellationToken = default)
+        IReadOnlyList<string> args, string workingDirectory, TextWriter? output,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(workingDirectory);
@@ -34,21 +39,55 @@ internal sealed class ProcessCommandExecutor : ICommandExecutor
             startInfo.ArgumentList.Add(arg);
         }
 
-        using var process = Process.Start(startInfo)
+        var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Failed to start process: " + args[0]);
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
         try
         {
-            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            // Event-based reads: line-oriented like the child console output; avoids
+            // passing the process StreamReaders into tasks (crashes the CA2025 analyzer).
+            var sink = output is null ? null : TextWriter.Synchronized(output);
+            var stdoutDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var stderrDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            process.OutputDataReceived += (_, e) =>
+            {
+                if (e.Data is null)
+                {
+                    stdoutDone.TrySetResult();
+                }
+                else
+                {
+                    sink?.WriteLine(e.Data);
+                }
+            };
+            process.ErrorDataReceived += (_, e) =>
+            {
+                if (e.Data is null)
+                {
+                    stderrDone.TrySetResult();
+                }
+                else
+                {
+                    sink?.WriteLine(e.Data);
+                }
+            };
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            try
+            {
+                await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                await Task.WhenAll(stdoutDone.Task, stderrDone.Task).WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                process.TryKillTree();
+                throw;
+            }
+            return process.ExitCode;
         }
-        catch (OperationCanceledException)
+        finally
         {
-            process.TryKillTree();
-            throw;
+            process.Dispose();
         }
-        await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
-        return process.ExitCode;
     }
 }
 
