@@ -37,6 +37,80 @@ public class CliArgumentsParserTest
     }
 
     [Fact]
+    public void DiffFlagMeansDiffRefMode()
+    {
+        var args = CliArgumentsParser.Parse(["--diff", "origin/develop"]);
+        Assert.Equal(CliMode.DiffRef, args.Mode);
+        Assert.Equal("origin/develop", args.DiffRef);
+    }
+
+    [Fact]
+    public void DiffFlagEqualsForm()
+    {
+        var args = CliArgumentsParser.Parse(["--diff=origin/develop"]);
+        Assert.Equal(CliMode.DiffRef, args.Mode);
+        Assert.Equal("origin/develop", args.DiffRef);
+    }
+
+    [Fact]
+    public void DiffCannotBeCombinedWithFiles()
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse(["--diff", "origin/develop", "src/demo/A.cs"]));
+        Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse(["src/demo/A.cs", "--diff", "origin/develop"]));
+    }
+
+    [Fact]
+    public void DiffCannotBeCombinedWithChanged()
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse(["--changed", "--diff", "origin/develop"]));
+        Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse(["--diff", "origin/develop", "--changed"]));
+    }
+
+    [Fact]
+    public void DiffMissingValueThrows()
+    {
+        var error = Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse(["--diff"]));
+        Assert.Contains("--diff", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiffEmptyValueThrows()
+    {
+        var blank = Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse(["--diff="]));
+        Assert.Contains("--diff", blank.Message, StringComparison.Ordinal);
+        Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse(["--diff", ""]));
+        Assert.Throws<InvalidOperationException>(
+            () => CliArgumentsParser.Parse(["--diff", "   "]));
+    }
+
+    [Fact]
+    public void FlagsCombineWithDiffMode()
+    {
+        var args = CliArgumentsParser.Parse(
+            ["--diff", "origin/develop", "--threshold=5", "--no-coverage",
+             "--format=json", "--top=3", "--min-cc=2", "--no-progress",
+             "--violations-only", "--path=some/dir", "--output=r.txt"]);
+        Assert.Equal(CliMode.DiffRef, args.Mode);
+        Assert.Equal("origin/develop", args.DiffRef);
+        Assert.Equal(5.0, args.Threshold);
+        Assert.True(args.NoCoverage);
+        Assert.Equal("json", args.Format);
+        Assert.Equal(3, args.Top);
+        Assert.Equal(2, args.MinComplexity);
+        Assert.True(args.NoProgress);
+        Assert.True(args.ViolationsOnly);
+        Assert.Equal("some/dir", args.ProjectPath);
+        Assert.Equal("r.txt", args.OutputPath);
+    }
+
+    [Fact]
     public void FileNamesMeanExplicitFiles()
     {
         var args = CliArgumentsParser.Parse(_twoFiles);
@@ -320,6 +394,7 @@ public class CliArgumentsParserTest
     [Theory]
     [InlineData("-h")]
     [InlineData("--changed")]
+    [InlineData("--diff")]
     public void DoubleDashTreatsFlagsAsFilenames(string flag)
     {
         var args = CliArgumentsParser.Parse(["--", flag]);

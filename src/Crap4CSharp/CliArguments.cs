@@ -11,4 +11,5 @@ internal sealed record CliArguments(
     int MinComplexity = 1,
     bool NoCoverage = false,
     bool NoProgress = false,
-    bool ViolationsOnly = false);
+    bool ViolationsOnly = false,
+    string? DiffRef = null);

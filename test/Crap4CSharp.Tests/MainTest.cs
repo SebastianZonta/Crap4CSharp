@@ -62,6 +62,21 @@ public sealed class MainTest : IDisposable
     }
 
     [Fact]
+    public void HelpDocumentsDiffMode()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = Program.Run(["--help"], _tempDir, output, err, _noopCoverage);
+
+        Assert.Equal(0, exit);
+        Assert.Contains(
+            "--diff <ref>         Analyze committed C# changes between <ref> and HEAD (merge-base..HEAD)",
+            output.ToString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MainProcessExitsZeroForHelp()
     {
         Assert.Equal(0, RunTool("--help", _tempDir));

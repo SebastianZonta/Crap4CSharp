@@ -6,5 +6,6 @@ internal enum CliMode
     Version,
     AllSrc,
     ChangedSrc,
+    DiffRef,
     ExplicitFiles
 }

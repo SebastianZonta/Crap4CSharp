@@ -16,6 +16,7 @@ internal static class CliArgumentsParser
         var noProgress = false;
         var violationsOnly = false;
         var changed = false;
+        var diffRef = default(string);
         var help = false;
         var version = false;
         List<string>? values = null;
@@ -48,6 +49,10 @@ internal static class CliArgumentsParser
                 {
                     RejectValue(name, hasInline);
                     changed = true;
+                }
+                else if (IsFlag(name, "--diff"))
+                {
+                    diffRef = TakeValue(args, ref i, inlineValue, hasInline, name);
                 }
                 else if (IsFlag(name, "--no-coverage"))
                 {
@@ -119,6 +124,7 @@ internal static class CliArgumentsParser
                         violationsOnly = true;
                         break;
                     case "--path":
+                    case "--diff":
                     case "--output":
                     case "-o":
                     case "--threshold":
@@ -150,6 +156,24 @@ internal static class CliArgumentsParser
         if (version)
         {
             return new CliArguments(CliMode.Version, []);
+        }
+        if (diffRef is not null)
+        {
+            if (changed)
+            {
+                throw new InvalidOperationException("--changed cannot be combined with --diff");
+            }
+            if (values is not null && values.Count != 0)
+            {
+                throw new InvalidOperationException("--diff cannot be combined with file arguments");
+            }
+            if (string.IsNullOrWhiteSpace(diffRef))
+            {
+                throw new InvalidOperationException("Missing value for '--diff'. Use '--diff=<ref>' or '--diff <ref>'.");
+            }
+            return new CliArguments(
+                CliMode.DiffRef, [], projectPath, outputPath,
+                threshold, format, top, minComplexity, noCoverage, noProgress, violationsOnly, diffRef);
         }
         if (changed)
         {
