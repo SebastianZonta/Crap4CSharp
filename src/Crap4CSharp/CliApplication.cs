@@ -57,20 +57,21 @@ internal sealed class CliApplication
         CliArguments parsed, string effectiveRoot, CancellationToken cancellationToken)
     {
         var effectivePrefix = effectiveRoot + Path.DirectorySeparatorChar;
-        var showProgress = ProgressSpinner.IsEnabled(_err, parsed.NoProgress);
+        var logProgress = !parsed.NoProgress;
         IReadOnlyList<string> filesToAnalyze;
-        await using (ProgressSpinner.StartIfEnabled(_err, "Discovering files…", showProgress))
-        {
-            filesToAnalyze = await FilesForModeAsync(parsed, effectiveRoot, cancellationToken).ConfigureAwait(false);
-        }
+        filesToAnalyze = await FilesForModeAsync(parsed, effectiveRoot, cancellationToken).ConfigureAwait(false);
         if (filesToAnalyze.Count == 0)
         {
             await _out.WriteLineAsync(ToolConstants.NoFilesMessage).ConfigureAwait(false);
             return 0;
         }
+        if (logProgress)
+        {
+            await _err.WriteLineAsync($"Found {filesToAnalyze.Count} C# file(s).").ConfigureAwait(false);
+        }
 
         var metrics = await AnalyzeByModuleAsync(
-            filesToAnalyze, effectiveRoot, effectivePrefix, parsed.NoCoverage, !parsed.NoProgress, showProgress, cancellationToken).ConfigureAwait(false);
+            filesToAnalyze, effectiveRoot, effectivePrefix, parsed.NoCoverage, logProgress, cancellationToken).ConfigureAwait(false);
         metrics.Sort(CrapScore.CompareByCrapDesc);
         if (parsed.MinComplexity > 1)
         {
@@ -134,7 +135,7 @@ internal sealed class CliApplication
 
     private async Task<List<MethodMetrics>> AnalyzeByModuleAsync(
         IReadOnlyList<string> filesToAnalyze, string effectiveRoot, string effectivePrefix,
-        bool noCoverage, bool logCoverage, bool showProgress, CancellationToken cancellationToken)
+        bool noCoverage, bool logProgress, CancellationToken cancellationToken)
     {
         List<MethodMetrics> metrics = [];
         foreach (var entry in GroupByModuleRoot(filesToAnalyze, effectiveRoot, effectivePrefix))
@@ -143,24 +144,27 @@ internal sealed class CliApplication
             if (!noCoverage)
             {
                 var testTarget = TestTargetFor(effectiveRoot, moduleRoot);
-                if (logCoverage)
+                if (logProgress)
                 {
                     await _err.WriteLineAsync(
                         FormatCommandEcho(CoverageRunner.CoverageCommand(testTarget, moduleRoot), moduleRoot, effectiveRoot)).ConfigureAwait(false);
                 }
                 await _coverageRunner.GenerateCoverageAsync(
-                    testTarget, moduleRoot, logCoverage ? _err : null, cancellationToken).ConfigureAwait(false);
+                    testTarget, moduleRoot, logProgress ? _err : null, cancellationToken).ConfigureAwait(false);
             }
             var coberturaXml = FindCoberturaXml(moduleRoot);
             if (coberturaXml is null)
             {
                 await _err.WriteLineAsync(ToolConstants.CoverageMissingWarning(moduleRoot)).ConfigureAwait(false);
             }
-            List<MethodMetrics> analyzed;
-            await using (ProgressSpinner.StartIfEnabled(_err, "Analyzing…", showProgress))
+            if (logProgress)
             {
-                analyzed = [.. CrapAnalyzer.Analyze(moduleRoot, entry.Value, coberturaXml)];
+                foreach (var file in entry.Value)
+                {
+                    await _err.WriteLineAsync($"Analyzing {RelativizeIfUnder(file, effectiveRoot)}").ConfigureAwait(false);
+                }
             }
+            List<MethodMetrics> analyzed = [.. CrapAnalyzer.Analyze(moduleRoot, entry.Value, coberturaXml)];
             metrics.AddRange(analyzed);
         }
         return metrics;

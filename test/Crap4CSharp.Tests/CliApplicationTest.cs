@@ -912,6 +912,102 @@ public sealed class CliApplicationTest : IDisposable
     }
 
     [Fact]
+    public void DiscoveryPrintsFoundSummary()
+    {
+        var rel = WriteTwoMethodSample();
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute([rel, "--no-coverage"]);
+
+        Assert.Equal(0, exit);
+        Assert.Contains("Found 1 C# file(s).", err.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Found", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnalysisPrintsAnalyzingPerFileInOrder()
+    {
+        var rel = WriteTwoMethodSample();
+        var extra = Path.Combine("src", "Demo", "Extra.cs");
+        File.WriteAllText(
+            Path.Combine(_tempDir, extra), "class Extra { int M() { return 1; } }\n");
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute([rel, extra, "--no-coverage"]);
+
+        Assert.Equal(0, exit);
+        var log = err.ToString();
+        var extraIndex = log.IndexOf(
+            $"Analyzing {extra}", StringComparison.Ordinal);
+        var sampleIndex = log.IndexOf(
+            $"Analyzing {rel}", StringComparison.Ordinal);
+        Assert.True(extraIndex >= 0, "Missing Analyzing line for " + extra);
+        Assert.True(sampleIndex > extraIndex, "Analyzing lines out of order");
+    }
+
+    [Fact]
+    public void NoProgressSilencesFileList()
+    {
+        var rel = WriteTwoMethodSample();
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute([rel, "--no-coverage", "--no-progress"]);
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain("Found", err.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Analyzing", err.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MultiModuleKeepsFoundFirstThenFileLines()
+    {
+        foreach (var module in new[] { "A", "B" })
+        {
+            var dir = Path.Combine(_tempDir, "src", module);
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, module + ".csproj"), "<Project/>\n");
+            File.WriteAllText(
+                Path.Combine(dir, "Code.cs"), $"class {module} {{ int M() {{ return 1; }} }}\n");
+        }
+        var relA = Path.Combine("src", "A", "Code.cs");
+        var relB = Path.Combine("src", "B", "Code.cs");
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute([relA, relB, "--no-coverage"]);
+
+        Assert.Equal(0, exit);
+        var log = err.ToString();
+        var foundIndex = log.IndexOf("Found 2 C# file(s).", StringComparison.Ordinal);
+        var aIndex = log.IndexOf($"Analyzing {relA}", StringComparison.Ordinal);
+        var bIndex = log.IndexOf($"Analyzing {relB}", StringComparison.Ordinal);
+        Assert.True(foundIndex >= 0, "Missing Found summary");
+        Assert.True(aIndex > foundIndex, "Module A file line not after Found");
+        Assert.True(bIndex > foundIndex, "Module B file line not after Found");
+    }
+
+    [Fact]
+    public void EmptySelectionWritesNoLogLines()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute([]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(string.Empty, err.ToString());
+    }
+
+    [Fact]
     public void VersionFlagPrintsVersion()
     {
         using var output = new StringWriter();
