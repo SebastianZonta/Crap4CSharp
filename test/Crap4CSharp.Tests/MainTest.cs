@@ -47,6 +47,21 @@ public sealed class MainTest : IDisposable
     }
 
     [Fact]
+    public void HelpDocumentsProgressLogContract()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = Program.Run(["--help"], _tempDir, output, err, _noopCoverage);
+
+        Assert.Equal(0, exit);
+        var usage = output.ToString();
+        Assert.Contains("--no-progress", usage, StringComparison.Ordinal);
+        Assert.Contains("stderr", usage, StringComparison.Ordinal);
+        Assert.Contains("stdout", usage, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MainProcessExitsZeroForHelp()
     {
         Assert.Equal(0, RunTool("--help", _tempDir));

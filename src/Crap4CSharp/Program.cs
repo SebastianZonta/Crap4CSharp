@@ -72,9 +72,12 @@ internal static class Program
           --min-cc <n>             Hide methods with complexity below n (default 1).
           --violations-only        Show only methods with CRAP above the threshold.
           --no-coverage            Skip 'dotnet test' coverage run; reuse existing XML.
-          --no-progress            Disable the progress spinner on stderr.
+          --no-progress            Disable the progress log on stderr.
           --help, -h               Print this help message.
           --version                Print version.
+
+        Progress log (coverage commands, Found/Analyzing lines) goes to stderr;
+        stdout carries only the report. --no-progress silences the log.
         """;
 
     internal static double MaxCrap(IEnumerable<MethodMetrics> metrics) =>

@@ -79,13 +79,15 @@ crap4csharp --top 20 --min-cc 3 --no-coverage
   (`N/A` rows hidden; the exit-`2` gate still uses the full result set).
 - `--no-coverage` — skip the `dotnet test` coverage run; reuse existing
   `TestResults/**/coverage.cobertura.xml` (missing → `N/A`).
-- `--no-progress` — disable the Braille progress spinner on stderr
-  (`Discovering files…` / `Running coverage…` / `Analyzing…`, auto-off when
-  stderr is redirected).
+- `--no-progress` — silence the progress log on stderr.
 - `--help, -h` (also `-?`) — print usage; `--version` — print version.
 - `--` — treat all following args as paths (e.g. files starting with `-`).
 - Both `--flag value` and `--flag=value` forms are accepted.
 - Unknown `--*` options fail with exit `1`.
+
+The progress log (`Found N C# file(s).`, `$ dotnet test …` echoes with live
+output, `Analyzing <file>` lines) goes to stderr; stdout carries only the
+report, so `--output` files and pipes stay clean. `--no-progress` silences it.
 
 Empty selection prints `No C# files to analyze.` and exits successfully.
 

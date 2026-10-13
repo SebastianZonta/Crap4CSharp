@@ -994,6 +994,112 @@ public sealed class CliApplicationTest : IDisposable
         Assert.True(bIndex > foundIndex, "Module B file line not after Found");
     }
 
+    [Theory]
+    [InlineData("text", "CRAP Report")]
+    [InlineData("json", "[\n")]
+    [InlineData("csv", "method,class,cc,coverage,crap\n")]
+    public void ProgressLogLocksFullOrderAndKeepsStdoutPure(string format, string marker)
+    {
+        var rel = WriteTwoMethodSample();
+        var extra = Path.Combine("src", "Demo", "Extra.cs");
+        File.WriteAllText(
+            Path.Combine(_tempDir, extra), "class Extra { int M() { return 1; } }\n");
+        var coverageRunner = new CoverageRunner(new StreamingFakeExecutor(0, "fake-build-output"));
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
+            .Execute([rel, extra, "--format", format]);
+
+        Assert.Equal(0, exit);
+        var log = err.ToString();
+        var positions = new[]
+        {
+            log.IndexOf("Found 2 C# file(s).", StringComparison.Ordinal),
+            log.IndexOf("$ ", StringComparison.Ordinal),
+            log.IndexOf("fake-build-output", StringComparison.Ordinal),
+            log.IndexOf($"Analyzing {extra}", StringComparison.Ordinal),
+            log.IndexOf($"Analyzing {rel}", StringComparison.Ordinal),
+            log.IndexOf("Warning: Cobertura XML not found", StringComparison.Ordinal),
+        };
+        Assert.All(positions, p => Assert.True(p >= 0, "Missing log line"));
+        Assert.Equal(positions, positions.OrderBy(p => p));
+        var report = output.ToString();
+        Assert.Contains(marker, report, StringComparison.Ordinal);
+        Assert.DoesNotContain("Found", report, StringComparison.Ordinal);
+        Assert.DoesNotContain("Analyzing", report, StringComparison.Ordinal);
+        Assert.DoesNotContain("$ ", report, StringComparison.Ordinal);
+        Assert.DoesNotContain("fake-build-output", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GateMessageComesLast()
+    {
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        Directory.CreateDirectory(sourceRoot);
+        File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), TwoMethodSource);
+        var coverageRunner = new CoverageRunner(new FakeExecutor((_, _) =>
+        {
+            var resultsDir = Path.Combine(_tempDir, "TestResults", "run1");
+            Directory.CreateDirectory(resultsDir);
+            File.WriteAllText(Path.Combine(resultsDir, "coverage.cobertura.xml"), """
+                <coverage>
+                  <packages>
+                    <package name="Demo">
+                      <classes>
+                        <class name="Demo/Sample" filename="Sample.cs">
+                          <methods>
+                            <method name="Branchy" signature="()V">
+                              <lines>
+                                <line number="7" hits="1"/>
+                                <line number="8" hits="1"/>
+                              </lines>
+                            </method>
+                          </methods>
+                        </class>
+                      </classes>
+                    </package>
+                  </packages>
+                </coverage>
+                """);
+            return 0;
+        }));
+        var rel = Path.Combine("src", "Demo", "Sample.cs");
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
+            .Execute([rel, "--threshold", "1"]);
+
+        Assert.Equal(2, exit);
+        var log = err.ToString();
+        var analyzing = log.IndexOf($"Analyzing {rel}", StringComparison.Ordinal);
+        var gate = log.IndexOf("CRAP threshold exceeded", StringComparison.Ordinal);
+        Assert.True(analyzing >= 0, "Missing Analyzing line");
+        Assert.True(gate > analyzing, "Gate message not last");
+        Assert.DoesNotContain("CRAP threshold exceeded", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OutputFileExcludesProgressLog()
+    {
+        var rel = WriteTwoMethodSample();
+        var coverageRunner = new CoverageRunner(new StreamingFakeExecutor(0, "fake-build-output"));
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, coverageRunner)
+            .Execute([rel, "--output", "report.txt"]);
+
+        Assert.Equal(0, exit);
+        var fileContent = File.ReadAllText(Path.Combine(_tempDir, "report.txt"));
+        Assert.Equal(output.ToString(), fileContent);
+        Assert.Contains("Found 1 C# file(s).", err.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Found", fileContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Analyzing", fileContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("$ ", fileContent, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void EmptySelectionWritesNoLogLines()
     {

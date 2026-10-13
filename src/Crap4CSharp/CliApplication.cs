@@ -153,16 +153,16 @@ internal sealed class CliApplication
                     testTarget, moduleRoot, logProgress ? _err : null, cancellationToken).ConfigureAwait(false);
             }
             var coberturaXml = FindCoberturaXml(moduleRoot);
-            if (coberturaXml is null)
-            {
-                await _err.WriteLineAsync(ToolConstants.CoverageMissingWarning(moduleRoot)).ConfigureAwait(false);
-            }
             if (logProgress)
             {
                 foreach (var file in entry.Value)
                 {
                     await _err.WriteLineAsync($"Analyzing {RelativizeIfUnder(file, effectiveRoot)}").ConfigureAwait(false);
                 }
+            }
+            if (coberturaXml is null)
+            {
+                await _err.WriteLineAsync(ToolConstants.CoverageMissingWarning(moduleRoot)).ConfigureAwait(false);
             }
             List<MethodMetrics> analyzed = [.. CrapAnalyzer.Analyze(moduleRoot, entry.Value, coberturaXml)];
             metrics.AddRange(analyzed);
