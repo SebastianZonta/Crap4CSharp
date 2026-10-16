@@ -503,7 +503,9 @@ internal sealed class CliApplication
         var grouped = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var file in filesToAnalyze)
         {
-            var moduleRoot = ModuleRootForNormalized(effectiveRoot, effectivePrefix, file, csprojDirs);
+            var moduleRoot = file.IsUnderDirectory(effectiveRoot, effectivePrefix)
+                ? ModuleRootForNormalized(effectiveRoot, effectivePrefix, file, csprojDirs)
+                : ModuleRootForOutsideRoot(file, effectiveRoot);
             if (!grouped.TryGetValue(moduleRoot, out var list))
             {
                 list = [];
@@ -512,6 +514,27 @@ internal sealed class CliApplication
             list.Add(file);
         }
         return grouped;
+    }
+
+    private static string ModuleRootForOutsideRoot(string file, string effectiveRoot)
+    {
+        // Positional paths may point outside the workspace root (e.g. an absolute
+        // .slnx path). The pre-scanned set only covers the workspace, and bounding
+        // the walk by the workspace would collapse every such file onto the
+        // workspace root (losing per-module coverage), so resolve the owning
+        // module from the file's own ancestors instead.
+        var current = Directory.Exists(file)
+            ? Path.GetFullPath(file)
+            : Path.GetDirectoryName(Path.GetFullPath(file));
+        while (current is not null)
+        {
+            if (HasCsproj(current))
+            {
+                return current;
+            }
+            current = Path.GetDirectoryName(current);
+        }
+        return Path.GetDirectoryName(Path.GetFullPath(file)) ?? effectiveRoot;
     }
 
     private static HashSet<string>? ScanCsprojDirs(string effectiveRoot)
