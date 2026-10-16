@@ -2,6 +2,10 @@ namespace Crap4CSharp;
 
 internal static class CrapAnalyzer
 {
+    // Coverage fallback bound: a same-name method entry is only reused when its
+    // line is this close to the analyzed method; farther matches score N/A so
+    // refactors that move lines never borrow another method's coverage.
+    internal const int MaxCoverageFallbackLines = 5;
     public static IReadOnlyList<MethodMetrics> Analyze(
         string projectRoot, IReadOnlyList<string> files, string? coberturaXml)
     {
@@ -145,7 +149,7 @@ internal static class CrapAnalyzer
                 nearest = entry.Value;
             }
         }
-        return nearest;
+        return nearestDistance <= MaxCoverageFallbackLines ? nearest : null;
     }
 
     public static int ParseTrailingLine(this string key) => ParseTrailingLine(key.AsSpan());
@@ -221,7 +225,7 @@ internal static class CrapAnalyzer
                 nearest = Data;
             }
         }
-        return nearest?.CoveragePercent();
+        return nearestDistance <= MaxCoverageFallbackLines ? nearest?.CoveragePercent() : null;
     }
 
     private static Dictionary<string, CoverageData> ToCoverageData(

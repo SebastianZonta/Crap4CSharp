@@ -26,11 +26,17 @@ internal static class ReportFormatter
             var entry = entries[index];
             var coverage = FormatCoverage(entry.CoveragePercent);
             var crap = FormatCrap(entry.CrapScore);
-            builder.Append(CultureInfo.InvariantCulture, $"{entry.MethodName,-30} {entry.ClassName,-35} {entry.Complexity,4} {coverage,7} {crap,8}\n");
+            builder.Append(CultureInfo.InvariantCulture, $"{Truncate(entry.MethodName, MethodColumnWidth),-30} {Truncate(entry.ClassName, ClassColumnWidth),-35} {entry.Complexity,4} {coverage,7} {crap,8}\n");
         }
 
         return builder.ToString();
     }
+
+    private const int MethodColumnWidth = 30;
+    private const int ClassColumnWidth = 35;
+
+    private static string Truncate(string value, int width) =>
+        value.Length <= width ? value : value[..width];
 
     private static string FormatCoverage(double? coverage)
     {
@@ -144,17 +150,36 @@ internal static class ReportFormatter
     {
         foreach (var c in value)
         {
-            if (c == '\\')
+            switch (c)
             {
-                builder.Append("\\\\");
-            }
-            else if (c == '"')
-            {
-                builder.Append("\\\"");
-            }
-            else
-            {
-                builder.Append(c);
+                case '\\':
+                    builder.Append("\\\\");
+                    break;
+                case '"':
+                    builder.Append("\\\"");
+                    break;
+                case '\n':
+                    builder.Append("\\n");
+                    break;
+                case '\r':
+                    builder.Append("\\r");
+                    break;
+                case '\t':
+                    builder.Append("\\t");
+                    break;
+                case '\b':
+                    builder.Append("\\b");
+                    break;
+                case '\f':
+                    builder.Append("\\f");
+                    break;
+                case var control when control < 0x20:
+                    builder.Append("\\u");
+                    builder.Append(((int)control).ToString("x4", CultureInfo.InvariantCulture));
+                    break;
+                default:
+                    builder.Append(c);
+                    break;
             }
         }
     }
@@ -164,7 +189,7 @@ internal static class ReportFormatter
         var needsQuotes = false;
         foreach (var c in value)
         {
-            if (c == ',' || c == '"' || c == '\n')
+            if (c == ',' || c == '"' || c == '\n' || c == '\r')
             {
                 needsQuotes = true;
                 break;

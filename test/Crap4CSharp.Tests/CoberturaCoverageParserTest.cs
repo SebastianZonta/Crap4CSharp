@@ -67,7 +67,7 @@ public sealed class CoberturaCoverageParserTest
     }
 
     [Fact]
-    public void ParsesInvalidHitsAndLineNumbersAsZero()
+    public void SkipsLinesWithInvalidNumbersInsteadOfZeroing()
     {
         var path = WriteTempXml("""
             <coverage>
@@ -91,7 +91,7 @@ public sealed class CoberturaCoverageParserTest
 
         var result = CoberturaCoverageParser.Parse(path);
 
-        Assert.Equal((1, 0), result["demo.Sample#Alpha:0"]);
+        Assert.Empty(result);
     }
 
     [Fact]

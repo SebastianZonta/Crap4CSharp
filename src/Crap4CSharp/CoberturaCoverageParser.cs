@@ -83,8 +83,11 @@ internal static class CoberturaCoverageParser
             {
                 continue;
             }
-            hasLine = true;
-            var hits = ParseInt(reader.GetAttribute("hits"));
+            if (!TryParseLineNumber(reader.GetAttribute("number"), out var number))
+            {
+                continue;
+            }
+            var hits = ParseHits(reader.GetAttribute("hits"));
             if (hits > 0)
             {
                 covered++;
@@ -93,7 +96,7 @@ internal static class CoberturaCoverageParser
             {
                 missed++;
             }
-            var number = ParseInt(reader.GetAttribute("number"));
+            hasLine = true;
             if (number < minLine)
             {
                 minLine = number;
@@ -127,13 +130,22 @@ internal static class CoberturaCoverageParser
         });
     }
 
-    private static int ParseInt(string? value)
+    // Malformed line numbers are skipped (never silently zero); a missing hits
+    // count still means "never hit".
+    private static bool TryParseLineNumber(string? value, out int result)
     {
-        if (string.IsNullOrEmpty(value))
+        if (!string.IsNullOrEmpty(value))
         {
-            return 0;
+            return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
         }
-        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+        result = 0;
+        return false;
+    }
+
+    private static int ParseHits(string? value)
+    {
+        if (!string.IsNullOrEmpty(value)
+            && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
         {
             return result;
         }

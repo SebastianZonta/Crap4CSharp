@@ -353,7 +353,7 @@ public sealed class CliApplicationTest : IDisposable
     }
 
     [Fact]
-    public void PicksSmallestCoberturaXmlWhenSeveralExist()
+    public void PicksDeterministicCoberturaXmlWhenTimestampsTie()
     {
         var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
         Directory.CreateDirectory(sourceRoot);
@@ -1435,15 +1435,128 @@ public sealed class CliApplicationTest : IDisposable
     }
 
     [Fact]
-    public void MissingExplicitFileExitsZero()
+    public void MissingExplicitFileExitsOneNamingTheFile()
+    {
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+        var missing = Path.Combine("missing", "Nope.cs");
+
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute([missing]);
+
+        Assert.Equal(1, exit);
+        Assert.Contains("Nope.cs", err.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ComplexConstructorAppearsInReport()
+    {
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        Directory.CreateDirectory(sourceRoot);
+        File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
+            namespace Demo;
+
+            class Sample {
+                Sample(bool a, bool b) {
+                    if (a) {
+                    }
+                    if (b) {
+                    }
+                }
+            }
+            """);
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute([Path.Combine("src", "Demo", "Sample.cs"), "--no-coverage"]);
+
+        Assert.Equal(0, exit);
+        Assert.Contains("Sample", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Demo.Sample", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnwritableReportPathExitsOneWithoutThrowing()
+    {
+        var rel = WriteTwoMethodSample();
+        File.WriteAllText(Path.Combine(_tempDir, "blocker"), "in the way");
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute([rel, "--no-coverage", "--output", Path.Combine("blocker", "report.txt")]);
+
+        Assert.Equal(1, exit);
+    }
+
+    [Fact]
+    public void BadWorkspaceRootExitsOneWithoutThrowing()
     {
         using var output = new StringWriter();
         using var err = new StringWriter();
 
         var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
-            .Execute([Path.Combine("missing", "Nope.cs")]);
+            .Execute(["--path", Path.Combine("does-not-exist"), "--no-coverage"]);
 
-        Assert.Equal(0, exit);
+        Assert.Equal(1, exit);
+        Assert.Contains("Project directory not found", err.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NewestCoberturaXmlWinsOverOlderReports()
+    {
+        var sourceRoot = Path.Combine(_tempDir, "src", "Demo");
+        Directory.CreateDirectory(sourceRoot);
+        File.WriteAllText(Path.Combine(sourceRoot, "Sample.cs"), """
+            namespace Demo;
+
+            class Sample {
+                int Alpha() {
+                    return 1;
+                }
+            }
+            """);
+        // Stale full-coverage report sorts first by name but is older.
+        var staleDir = Path.Combine(_tempDir, "TestResults", "aaa-old");
+        Directory.CreateDirectory(staleDir);
+        var staleXml = Path.Combine(staleDir, "coverage.cobertura.xml");
+        File.WriteAllText(staleXml, FullOrEmptyCoverage(hits: 1));
+        File.SetLastWriteTimeUtc(staleXml, DateTime.UtcNow.AddHours(-1));
+        // Fresh zero-coverage report sorts last by name but is newer.
+        var freshDir = Path.Combine(_tempDir, "TestResults", "zzz-new");
+        Directory.CreateDirectory(freshDir);
+        File.WriteAllText(Path.Combine(freshDir, "coverage.cobertura.xml"), FullOrEmptyCoverage(hits: 0));
+        using var output = new StringWriter();
+        using var err = new StringWriter();
+
+        // CRAP 1.0 (stale, covered) vs 2.0 (fresh, uncovered): the fresh
+        // report must win, breaching a 1.5 threshold.
+        var exit = new CliApplication(_tempDir, output, err, _noopCoverage)
+            .Execute([Path.Combine("src", "Demo", "Sample.cs"), "--no-coverage", "--threshold", "1.5"]);
+
+        Assert.Equal(2, exit);
+
+        static string FullOrEmptyCoverage(int hits) => $$"""
+            <coverage>
+              <packages>
+                <package name="Demo">
+                  <classes>
+                    <class name="Demo/Sample" filename="Sample.cs">
+                      <methods>
+                        <method name="Alpha" signature="()V">
+                          <lines>
+                            <line number="4" hits="{{hits}}"/>
+                            <line number="5" hits="{{hits}}"/>
+                          </lines>
+                        </method>
+                      </methods>
+                    </class>
+                  </classes>
+                </package>
+              </packages>
+            </coverage>
+            """;
     }
 
     [Fact]

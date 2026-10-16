@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 
 namespace Crap4CSharp.Tests;
 
@@ -123,5 +124,43 @@ public sealed class ReportFormatterTest
 
         Assert.True(json.IndexOf("high", StringComparison.Ordinal) < json.IndexOf("low", StringComparison.Ordinal));
         Assert.True(csv.IndexOf("high", StringComparison.Ordinal) < csv.IndexOf("low", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void FormatJsonControlCharactersRoundTripThroughStrictParser()
+    {
+        var entries = new List<MethodMetrics>
+        {
+            new("we\nird\tmethod\x01", "demo.Sa\"mple\\Klass\r\n", 3, 85.0, 4.5),
+        };
+
+        var json = ReportFormatter.FormatJson(entries);
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        Assert.Equal(JsonValueKind.Array, root.ValueKind);
+        var row = root[0];
+        Assert.Equal("we\nird\tmethod\x01", row.GetProperty("method").GetString());
+        Assert.Equal("demo.Sa\"mple\\Klass\r\n", row.GetProperty("class").GetString());
+    }
+
+    [Fact]
+    public void FormatTextTruncatesLongNamesToColumnWidth()
+    {
+        var entries = new List<MethodMetrics>
+        {
+            new(new string('m', 50), new string('c', 60), 3, 85.0, 4.5),
+        };
+
+        var report = ReportFormatter.FormatText(entries);
+        var lines = report.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var header = lines[2];
+
+        Assert.Equal(5, lines.Length); // title (2) + header + separator + 1 row
+        foreach (var line in lines[2..])
+        {
+            Assert.Equal(header.Length, line.Length);
+        }
+        Assert.Contains(new string('m', 30), report, StringComparison.Ordinal);
+        Assert.DoesNotContain(new string('m', 31), report, StringComparison.Ordinal);
     }
 }

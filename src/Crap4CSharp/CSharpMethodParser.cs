@@ -34,20 +34,42 @@ internal sealed class MethodCollector : CSharpSyntaxWalker
             return;
         if (node.Modifiers.Any(SyntaxKind.AbstractKeyword))
             return;
-        if (node.Parent is not BaseTypeDeclarationSyntax declaringType)
+        if (node.Parent is not BaseTypeDeclarationSyntax)
             return;
-        for (var parent = declaringType.Parent; parent is not null; parent = parent.Parent)
-        {
-            if (parent is BaseTypeDeclarationSyntax)
-                return;
-        }
 
+        AddMethod(node.Identifier.ValueText, node.Span.Start, (CSharpSyntaxNode?)node.Body ?? node.ExpressionBody!);
+    }
+
+    public override void VisitConstructorDeclaration(ConstructorDeclarationSyntax node)
+    {
+        if (node.Body is null && node.ExpressionBody is null)
+            return;
+        if (node.Parent is not BaseTypeDeclarationSyntax)
+            return;
+
+        AddMethod(node.Identifier.ValueText, node.Span.Start, (CSharpSyntaxNode?)node.Body ?? node.ExpressionBody!);
+    }
+
+    private void AddMethod(string name, int spanStart, CSharpSyntaxNode implementation)
+    {
         _complexity.Reset();
-        var implementation = (CSharpSyntaxNode?)node.Body ?? node.ExpressionBody!;
         _complexity.Visit(implementation);
-        var start = _lines.GetLinePosition(node.Span.Start).Line + 1;
+        var start = _lines.GetLinePosition(spanStart).Line + 1;
         var end = _lines.GetLinePosition(implementation.Span.End).Line + 1;
-        Methods.Add(new MethodDescriptor(node.Identifier.ValueText, start, end, _complexity.Complexity));
+        Methods.Add(new MethodDescriptor(name, start, end, _complexity.Complexity));
+        foreach (var local in implementation.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
+        {
+            var body = (CSharpSyntaxNode?)local.Body ?? local.ExpressionBody;
+            if (body is null)
+            {
+                continue;
+            }
+            var localComplexity = new CcWalker();
+            localComplexity.Visit(body);
+            var localStart = _lines.GetLinePosition(local.Span.Start).Line + 1;
+            var localEnd = _lines.GetLinePosition(body.Span.End).Line + 1;
+            Methods.Add(new MethodDescriptor(local.Identifier.ValueText, localStart, localEnd, localComplexity.Complexity));
+        }
     }
 }
 
@@ -71,6 +93,8 @@ internal sealed class CcWalker : CSharpSyntaxWalker
     public override void VisitCaseSwitchLabel(CaseSwitchLabelSyntax node) { Complexity++; base.VisitCaseSwitchLabel(node); }
     public override void VisitCasePatternSwitchLabel(CasePatternSwitchLabelSyntax node) { Complexity++; base.VisitCasePatternSwitchLabel(node); }
     public override void VisitDefaultSwitchLabel(DefaultSwitchLabelSyntax node) { Complexity++; base.VisitDefaultSwitchLabel(node); }
+    public override void VisitSwitchExpressionArm(SwitchExpressionArmSyntax node) { Complexity++; base.VisitSwitchExpressionArm(node); }
+    public override void VisitLocalFunctionStatement(LocalFunctionStatementSyntax node) { }
 
     public override void VisitBinaryExpression(BinaryExpressionSyntax node)
     {

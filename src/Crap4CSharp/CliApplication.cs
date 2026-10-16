@@ -51,11 +51,26 @@ internal sealed class CliApplication
             await _err.WriteLineAsync(ex.Message).ConfigureAwait(false);
             return 1;
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            await _err.WriteLineAsync(ex.Message).ConfigureAwait(false);
+            return 1;
+        }
+        catch (IOException ex)
+        {
+            await _err.WriteLineAsync(ex.Message).ConfigureAwait(false);
+            return 1;
+        }
     }
 
     private async Task<int> ExecuteOnRootAsync(
         CliArguments parsed, string effectiveRoot, CancellationToken cancellationToken)
     {
+        if (!Directory.Exists(effectiveRoot))
+        {
+            await _err.WriteLineAsync("Project directory not found: " + effectiveRoot).ConfigureAwait(false);
+            return 1;
+        }
         var effectivePrefix = effectiveRoot + Path.DirectorySeparatorChar;
         var logProgress = !parsed.NoProgress;
         IReadOnlyList<string> filesToAnalyze;
@@ -128,7 +143,7 @@ internal sealed class CliApplication
         }
         catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
         {
-            return _projectRoot;
+            throw new InvalidOperationException("Invalid workspace path: " + projectPath, ex);
         }
         return combined;
     }
@@ -199,16 +214,29 @@ internal sealed class CliApplication
         {
             return null;
         }
-        string? min = null;
+        // Newest report wins: stale coverage must never shadow a fresh run.
+        string? newest = null;
+        var newestTime = DateTime.MinValue;
         foreach (var candidate in Directory.EnumerateFiles(
             testResultsDir, ToolConstants.CoberturaFileName, FileSystemHelpers.SharedEnumeration()))
         {
-            if (min is null || string.Compare(candidate, min, StringComparison.Ordinal) < 0)
+            DateTime writeTime;
+            try
             {
-                min = candidate;
+                writeTime = File.GetLastWriteTimeUtc(candidate);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                continue;
+            }
+            if (newest is null || writeTime > newestTime
+                || (writeTime == newestTime && string.Compare(candidate, newest, StringComparison.Ordinal) < 0))
+            {
+                newest = candidate;
+                newestTime = writeTime;
             }
         }
-        return min;
+        return newest;
     }
 
     internal static bool ThresholdExceeded(double max) => ThresholdExceeded(max, DefaultThreshold);
@@ -415,6 +443,10 @@ internal sealed class CliApplication
                     files.Add(file);
                 }
             }
+            else if (!File.Exists(path))
+            {
+                throw new InvalidOperationException("File not found: " + arg);
+            }
             else
             {
                 files.Add(path);
@@ -431,14 +463,18 @@ internal sealed class CliApplication
         return ModuleRootForNormalized(normalized, normalized + Path.DirectorySeparatorChar, file);
     }
 
-    private static string ModuleRootForNormalized(string normalizedRoot, string rootPrefix, string file)
+    private static string ModuleRootForNormalized(string normalizedRoot, string rootPrefix, string file) =>
+        ModuleRootForNormalized(normalizedRoot, rootPrefix, file, csprojDirs: null);
+
+    private static string ModuleRootForNormalized(
+        string normalizedRoot, string rootPrefix, string file, HashSet<string>? csprojDirs)
     {
         var current = Directory.Exists(file)
             ? Path.GetFullPath(file)
             : Path.GetDirectoryName(Path.GetFullPath(file));
         while (current is not null && current.IsUnderDirectory(normalizedRoot, rootPrefix))
         {
-            if (HasCsproj(current))
+            if (csprojDirs is not null ? csprojDirs.Contains(current) : HasCsproj(current))
             {
                 return current;
             }
@@ -462,10 +498,12 @@ internal sealed class CliApplication
     private static Dictionary<string, List<string>> GroupByModuleRoot(
         IReadOnlyList<string> filesToAnalyze, string effectiveRoot, string effectivePrefix)
     {
+        // One project scan per run, shared by every file below.
+        var csprojDirs = ScanCsprojDirs(effectiveRoot);
         var grouped = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var file in filesToAnalyze)
         {
-            var moduleRoot = ModuleRootForNormalized(effectiveRoot, effectivePrefix, file);
+            var moduleRoot = ModuleRootForNormalized(effectiveRoot, effectivePrefix, file, csprojDirs);
             if (!grouped.TryGetValue(moduleRoot, out var list))
             {
                 list = [];
@@ -474,6 +512,32 @@ internal sealed class CliApplication
             list.Add(file);
         }
         return grouped;
+    }
+
+    private static HashSet<string>? ScanCsprojDirs(string effectiveRoot)
+    {
+        try
+        {
+            HashSet<string> dirs = new(StringComparer.Ordinal);
+            foreach (var csproj in Directory.EnumerateFiles(
+                effectiveRoot, "*.csproj", FileSystemHelpers.SharedEnumeration()))
+            {
+                if (HasBuildOutputSegment(csproj))
+                {
+                    continue;
+                }
+                var dir = Path.GetDirectoryName(Path.GetFullPath(csproj));
+                if (dir is not null)
+                {
+                    dirs.Add(dir);
+                }
+            }
+            return dirs;
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private sealed class ParseOutcome

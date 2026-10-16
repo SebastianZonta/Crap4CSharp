@@ -12,6 +12,15 @@ and reports CRAP scores. Quality gate: fails when the worst score exceeds the th
 - `CC` is cyclomatic complexity (integer `>= 1` for concrete methods).
 - `coverage` is the method coverage fraction `0.0..1.0` from Cobertura line-rate data.
 - Unknown coverage is reported as `N/A` and sorts after numeric scores.
+- Every concrete method-like member is its own row: constructors and
+  nested-type methods included; local functions score on their own row, not
+  folded into the outer method.
+- One branch rule: each `case`/`default` label and each switch-expression arm
+  adds 1 to `CC`, so statement-switch and switch-expression forms of the same
+  logic score equally.
+- Coverage is matched to the method it belongs to (same class and method
+  name, line within a few lines); farther matches score `N/A` instead of
+  borrowing another method's coverage.
 
 Threshold: `8.0` by default (configurable via `--threshold`). Max numeric CRAP `>` threshold fails the run.
 

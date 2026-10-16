@@ -36,7 +36,7 @@ public sealed class CSharpMethodParserTest
     }
 
     [Fact]
-    public void IgnoresConstructorsAndAbstractMethods()
+    public void IncludesConstructorsButSkipsAbstractMethods()
     {
         var source = """
             abstract class Sample {
@@ -53,11 +53,13 @@ public sealed class CSharpMethodParserTest
 
         var methods = CSharpMethodParser.Parse(source);
 
-        Assert.Equal(new List<MethodDescriptor> { new("Present", 7, 9, 1) }, methods);
+        Assert.Equal(
+            new List<MethodDescriptor> { new("Sample", 2, 3, 1), new("Present", 7, 9, 1) },
+            methods);
     }
 
     [Fact]
-    public void IgnoresMethodsOfNestedTypes()
+    public void IncludesMethodsOfNestedTypes()
     {
         var source = """
             class Outer {
@@ -78,11 +80,13 @@ public sealed class CSharpMethodParserTest
 
         var methods = CSharpMethodParser.Parse(source);
 
-        Assert.Equal(new List<MethodDescriptor> { new("Top", 2, 4, 1) }, methods);
+        Assert.Equal(
+            new List<MethodDescriptor> { new("Top", 2, 4, 1), new("Hidden", 7, 12, 2) },
+            methods);
     }
 
     [Fact]
-    public void LocalFunctionsCountTowardOuterButAreNotListedSeparately()
+    public void LocalFunctionsAreListedSeparatelyFromOuter()
     {
         var source = """
             class Sample {
@@ -99,7 +103,9 @@ public sealed class CSharpMethodParserTest
 
         var methods = CSharpMethodParser.Parse(source);
 
-        Assert.Equal(new List<MethodDescriptor> { new("Outer", 2, 9, 2) }, methods);
+        Assert.Equal(
+            new List<MethodDescriptor> { new("Outer", 2, 9, 1), new("Local", 3, 7, 2) },
+            methods);
     }
 
     [Fact]
@@ -231,7 +237,7 @@ public sealed class CSharpMethodParserTest
     }
 
     [Fact]
-    public void SwitchExpressionArmsAndNullOperatorsDoNotCount()
+    public void SwitchExpressionArmsCountLikeCaseLabels()
     {
         var source = """
             class Sample {
@@ -254,11 +260,39 @@ public sealed class CSharpMethodParserTest
         Assert.Equal(
             new List<MethodDescriptor>
             {
-                new("Kind", 2, 4, 1),
+                new("Kind", 2, 4, 3),
                 new("Name", 6, 8, 1),
                 new("Both", 10, 12, 1),
             },
             methods);
+    }
+
+    [Fact]
+    public void StatementSwitchAndExpressionFormsScoreEqually()
+    {
+        var statement = """
+            class Sample {
+                int Kind(int x) {
+                    switch (x) {
+                        case 1: return 10;
+                        case 2: return 20;
+                        default: return 0;
+                    }
+                }
+            }
+            """;
+        var expression = """
+            class Sample {
+                int Kind(int x) {
+                    return x switch { 1 => 10, 2 => 20, _ => 0 };
+                }
+            }
+            """;
+
+        var fromStatement = CSharpMethodParser.Parse(statement);
+        var fromExpression = CSharpMethodParser.Parse(expression);
+
+        Assert.Equal(fromStatement[0].Complexity, fromExpression[0].Complexity);
     }
 
     [Fact]

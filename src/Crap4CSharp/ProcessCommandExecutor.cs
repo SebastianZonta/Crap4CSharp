@@ -102,7 +102,11 @@ internal static class ProcessExtensions
                 process.Kill(entireProcessTree: true);
             }
         }
-        catch (Exception ex) when (ex is InvalidOperationException || ex is NotSupportedException)
+        catch (Exception ex) when (ex is InvalidOperationException
+            || ex is NotSupportedException
+            || ex is UnauthorizedAccessException
+            || ex is System.ComponentModel.Win32Exception
+            || ex is IOException)
         {
         }
     }

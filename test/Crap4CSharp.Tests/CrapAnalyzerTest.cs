@@ -155,6 +155,31 @@ public sealed class CrapAnalyzerTest : IDisposable
     }
 
     [Fact]
+    public void LookupCoverageReturnsNullWhenOnlyFarAwayLinesExist()
+    {
+        var coverageMap = new Dictionary<string, CoverageData>
+        {
+            ["Demo.Sample#Alpha:100"] = new CoverageData(0, 8),
+        };
+
+        Assert.Null(CrapAnalyzer.LookupCoverage(coverageMap, "Demo.Sample", "Alpha", 10));
+        Assert.Null(CrapAnalyzer.NearestCoverage(coverageMap, "Demo.Sample", "Alpha", 10));
+    }
+
+    [Fact]
+    public void LookupCoverageKeepsMatchesAtTheFallbackBoundary()
+    {
+        var coverageMap = new Dictionary<string, CoverageData>
+        {
+            ["Demo.Sample#Alpha:10"] = new CoverageData(1, 3),
+        };
+
+        // Distance 5 is still the same method after a small move.
+        Assert.Equal(75.0, CrapAnalyzer.LookupCoverage(coverageMap, "Demo.Sample", "Alpha", 15)!.Value, 0.001);
+        Assert.Null(CrapAnalyzer.LookupCoverage(coverageMap, "Demo.Sample", "Alpha", 16));
+    }
+
+    [Fact]
     public void NearestCoverageIgnoresOtherMethods()
     {
         var coverageMap = new Dictionary<string, CoverageData>

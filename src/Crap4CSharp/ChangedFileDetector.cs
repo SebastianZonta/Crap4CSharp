@@ -244,11 +244,85 @@ internal static class ChangedFileDetector
             return null;
         }
         var finalPath = line.Slice(3).Trim().RenameTarget();
+        finalPath = UnquoteGitPath(finalPath);
         if (!IsCsPath(finalPath))
         {
             return null;
         }
         return ToolConstants.CombineRooted(root, finalPath);
+    }
+
+    // git quotes "unusual" paths (spaces stay bare, but quotes, backslashes and
+    // non-ASCII bytes come out C-style: "src/caf\303\251.cs"). Strip the quotes
+    // so quoted .cs paths are analyzed instead of dropped.
+    internal static string UnquoteGitPath(ReadOnlySpan<char> path)
+    {
+        if (path.Length < 2 || path[0] != '"' || path[path.Length - 1] != '"')
+        {
+            return new string(path);
+        }
+        var inner = path.Slice(1, path.Length - 2);
+        if (inner.IndexOf('\\') < 0)
+        {
+            return new string(inner);
+        }
+        List<byte> bytes = new(inner.Length);
+        var utf8 = System.Text.Encoding.UTF8;
+        var buffer = new char[inner.Length];
+        var buffered = 0;
+        void Flush()
+        {
+            if (buffered > 0)
+            {
+                bytes.AddRange(utf8.GetBytes(buffer, 0, buffered));
+                buffered = 0;
+            }
+        }
+        var i = 0;
+        while (i < inner.Length)
+        {
+            if (inner[i] == '\\' && i + 1 < inner.Length)
+            {
+                var next = inner[i + 1];
+                if (next is >= '0' and <= '7')
+                {
+                    var value = 0;
+                    var digits = 0;
+                    while (digits < 3 && i + 1 + digits < inner.Length
+                        && inner[i + 1 + digits] is >= '0' and <= '7')
+                    {
+                        value = (value * 8) + (inner[i + 1 + digits] - '0');
+                        digits++;
+                    }
+                    Flush();
+                    bytes.Add((byte)value);
+                    i += 1 + digits;
+                    continue;
+                }
+                Flush();
+                switch (next)
+                {
+                    case 'n':
+                        bytes.Add((byte)'\n');
+                        break;
+                    case 't':
+                        bytes.Add((byte)'\t');
+                        break;
+                    case var c when c < 0x80:
+                        bytes.Add((byte)c);
+                        break;
+                    default:
+                        bytes.AddRange(utf8.GetBytes(new string(next, 1)));
+                        break;
+                }
+                i += 2;
+                continue;
+            }
+            buffer[buffered++] = inner[i];
+            i++;
+        }
+        Flush();
+        return utf8.GetString(bytes.ToArray());
     }
 
     public static bool IsCandidateLine(this string? line) =>

@@ -62,6 +62,41 @@ public sealed class ChangedFileDetectorTest : IDisposable
     }
 
     [Fact]
+    public void FindsQuotedPathsWithSpaces()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+        Run("git init", _tempDir);
+        Run("git config user.email test@example.com", _tempDir);
+        Run("git config user.name test", _tempDir);
+
+        var src = Path.Combine(_tempDir, "src");
+        Directory.CreateDirectory(src);
+        var spaced = Path.Combine(src, "My File.cs");
+        File.WriteAllText(spaced, "class Spaced {}\n");
+        Run("git add .", _tempDir);
+        Run("git commit -m init", _tempDir);
+        File.WriteAllText(spaced, "class Spaced { int M() { return 1; } }\n");
+
+        var changed = ChangedFileDetector.ChangedCsFiles(_tempDir);
+
+        Assert.Equal(new[] { spaced }, changed);
+    }
+
+    [Fact]
+    public void UnquoteGitPathDecodesQuotedPaths()
+    {
+        Assert.Equal("src/My File.cs", ChangedFileDetector.UnquoteGitPath("\"src/My File.cs\""));
+        Assert.Equal("src/café.cs", ChangedFileDetector.UnquoteGitPath("\"src/caf\\303\\251.cs\""));
+        Assert.Equal("src/a\"b.cs", ChangedFileDetector.UnquoteGitPath("\"src/a\\\"b.cs\""));
+        Assert.Equal("src/Plain.cs", ChangedFileDetector.UnquoteGitPath("src/Plain.cs"));
+        Assert.Equal("\"x", ChangedFileDetector.UnquoteGitPath("\"x"));
+        Assert.Equal(string.Empty, ChangedFileDetector.UnquoteGitPath("\"\""));
+    }
+
+    [Fact]
     public void IncludesGitErrorOutputWhenStatusFails()
     {
         var error = Assert.Throws<InvalidOperationException>(

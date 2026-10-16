@@ -160,34 +160,20 @@ public sealed class CoverageRunnerTest : IDisposable
     }
 
     [Fact]
-    public void WrapsDeleteFailureAsInvalidOperation()
+    public void FailedCoverageRunKeepsPriorResults()
     {
-        if (!OperatingSystem.IsLinux())
-        {
-            return;
-        }
         var resultsDir = Path.Combine(_tempDir, "TestResults");
         Directory.CreateDirectory(resultsDir);
-        File.WriteAllText(Path.Combine(resultsDir, "locked.xml"), "stale");
-        const UnixFileMode readExecute =
-            UnixFileMode.UserRead | UnixFileMode.UserExecute |
-            UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
-            UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
-        const UnixFileMode readWriteExecute = readExecute | UnixFileMode.UserWrite;
-        File.SetUnixFileMode(resultsDir, readExecute);
-        try
-        {
-            var runner = new CoverageRunner(new RecordingExecutor(0));
+        var stale = Path.Combine(resultsDir, "old.xml");
+        File.WriteAllText(stale, "stale");
 
-            var ex = Assert.Throws<InvalidOperationException>(
-                () => runner.GenerateCoverage(_tempDir));
+        var runner = new CoverageRunner(new RecordingExecutor(2));
 
-            Assert.StartsWith("Failed deleting stale coverage:", ex.Message, StringComparison.Ordinal);
-        }
-        finally
-        {
-            File.SetUnixFileMode(resultsDir, readWriteExecute);
-        }
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => runner.GenerateCoverage(_tempDir));
+
+        Assert.Equal("Coverage command failed with exit 2", ex.Message);
+        Assert.Equal("stale", File.ReadAllText(stale));
     }
 
     private sealed class RecordingExecutor(int exitCode) : ICommandExecutor
