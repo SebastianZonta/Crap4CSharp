@@ -8,7 +8,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <PackageId>crap4csharp</PackageId>
-    <Version>0.1.0-beta.2</Version>
+    <Version>0.5.1</Version>
     <Authors>Sebastian Zonta</Authors>
     <Description>CRAP metric analyzer for C# — port of crap4java.</Description>
     <PackageTags>crap;code-quality;complexity;coverage;metrics;dotnet-tool</PackageTags>
